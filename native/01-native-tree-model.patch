@@ -12,10 +12,10 @@ index 22b7842..ccfd14c 100644
  mod rail;
 diff --git a/crates/herdr-gpui/src/sidebar/native_tree.rs b/crates/herdr-gpui/src/sidebar/native_tree.rs
 new file mode 100644
-index 0000000..90e7d7a
+index 0000000..2f84975
 --- /dev/null
 +++ b/crates/herdr-gpui/src/sidebar/native_tree.rs
-@@ -0,0 +1,241 @@
+@@ -0,0 +1,243 @@
 +//! Native tree affordances for the opt-in Agent Tree plugin view.
 +
 +use super::tokens::{ResolvedToken, TokenKind};
@@ -140,12 +140,14 @@ index 0000000..90e7d7a
 +}
 +
 +pub(super) fn workspace_card(unit: Div, theme: &Theme) -> Div {
-+    unit.debug_selector(|| "native-tree-workspace-card".into())
++    let mut card = unit
++        .debug_selector(|| "native-tree-workspace-card".into())
 +        .rounded(px(8.))
-+        .mb(px(12.))
 +        .border_1()
 +        .border_color(rgba((theme.foreground << 8) | 0x20))
-+        .bg(rgba((theme.surface << 8) | 0x18))
++        .bg(rgba((theme.surface << 8) | 0x18));
++    card.style().size.width = Some(Length::Auto);
++    card.mx(px(10.)).mb(px(12.))
 +}
 +
 +pub(super) fn selected_agent(row: Stateful<Div>, theme: &Theme) -> Stateful<Div> {

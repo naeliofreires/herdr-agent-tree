@@ -2,7 +2,8 @@
 
 These patches implement Option A in [Herdr GPUI](https://github.com/penso/herdr-gpui):
 workspace cards, continuous tree guides, and an accent selection drawn without
-changing the row's measured geometry. Workspace cards have 12px external spacing.
+changing the row's measured geometry. Workspace cards have 10px of external
+spacing on each side and 12px between cards.
 
 The plugin still works with the released client through its textual prefix.
 The native companion consumes the optional `naeliofreires_tree_path` token.
