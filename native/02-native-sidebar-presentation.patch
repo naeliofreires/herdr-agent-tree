@@ -1,5 +1,5 @@
 diff --git a/crates/herdr-gpui/src/sidebar/cell.rs b/crates/herdr-gpui/src/sidebar/cell.rs
-index 154b74e..fbaa7ee 100644
+index 154b74e80251bce360080cbda16f3518574afc51..45864d329dd2c35a2796d506c135a78a8892e682 100644
 --- a/crates/herdr-gpui/src/sidebar/cell.rs
 +++ b/crates/herdr-gpui/src/sidebar/cell.rs
 @@ -23,6 +23,17 @@ use gpui::{App, ClickEvent, Div, ElementId, ParentElement, Styled, Window};
@@ -25,7 +25,7 @@ index 154b74e..fbaa7ee 100644
      /// The focused workspace or agent.
      pub(super) selected: bool,
 +    pub(super) accent_selected: bool,
-+    /// Keeps a native Agent Tree workspace title bold without marking it selected.
++    /// Keeps the Agent Tree workspace title bold without selecting it.
 +    pub(super) bold_workspace: bool,
      /// Marked as if hovered while the pointer is elsewhere, such as the row a
      /// menu was opened for.
@@ -48,7 +48,7 @@ index 154b74e..fbaa7ee 100644
          self.state.highlighted = highlighted;
          self
 diff --git a/crates/herdr-gpui/src/sidebar/layout.rs b/crates/herdr-gpui/src/sidebar/layout.rs
-index 7a7eda5..f91f8fd 100644
+index 7a7eda50ba03342ade7f9f1efa93d8f3be00180c..f91f8fd32d865de584ed774f868ac08b302a07f9 100644
 --- a/crates/herdr-gpui/src/sidebar/layout.rs
 +++ b/crates/herdr-gpui/src/sidebar/layout.rs
 @@ -3,7 +3,9 @@
@@ -85,7 +85,7 @@ index 7a7eda5..f91f8fd 100644
                      .when(!focused && highlighted, |layer| layer.bg(hover))
                      .when(!focused, |layer| {
 diff --git a/crates/herdr-gpui/src/sidebar/layout_tests.rs b/crates/herdr-gpui/src/sidebar/layout_tests.rs
-index e871dd0..29d8ddd 100644
+index e871dd0a58a38b6ce6c94e086e5f70e8816e43fb..29d8ddd557a5da35252d852569dc4a6ffdbc8d23 100644
 --- a/crates/herdr-gpui/src/sidebar/layout_tests.rs
 +++ b/crates/herdr-gpui/src/sidebar/layout_tests.rs
 @@ -59,6 +59,8 @@ mod listening_ports;
@@ -99,7 +99,7 @@ index e871dd0..29d8ddd 100644
  mod other_device_prs;
 diff --git a/crates/herdr-gpui/src/sidebar/layout_tests/native_tree.rs b/crates/herdr-gpui/src/sidebar/layout_tests/native_tree.rs
 new file mode 100644
-index 0000000..3cb0d3f
+index 0000000000000000000000000000000000000000..3cb0d3f367b30075089d298c1a038bbc1ecc0982
 --- /dev/null
 +++ b/crates/herdr-gpui/src/sidebar/layout_tests/native_tree.rs
 @@ -0,0 +1,79 @@
@@ -183,7 +183,7 @@ index 0000000..3cb0d3f
 +    view
 +}
 diff --git a/crates/herdr-gpui/src/sidebar/layouts/parts.rs b/crates/herdr-gpui/src/sidebar/layouts/parts.rs
-index 9150b46..cd7eb45 100644
+index 9150b466e393d71906139aa13c1213dfb7befd3f..cd7eb459847092132ecc623e9d3ad974fc8a6237 100644
 --- a/crates/herdr-gpui/src/sidebar/layouts/parts.rs
 +++ b/crates/herdr-gpui/src/sidebar/layouts/parts.rs
 @@ -8,7 +8,7 @@
@@ -206,7 +206,7 @@ index 9150b46..cd7eb45 100644
      match state.lift {
          // Only a border the layout already draws is colored: adding one
 diff --git a/crates/herdr-gpui/src/sidebar/render.rs b/crates/herdr-gpui/src/sidebar/render.rs
-index 67d7ff7..a9dfdf1 100644
+index 67d7ff739d0dc052e3b282c5e5283fef7e2ed6f7..a32ad14759f578942c2e701ccd6089b3a05fd4b0 100644
 --- a/crates/herdr-gpui/src/sidebar/render.rs
 +++ b/crates/herdr-gpui/src/sidebar/render.rs
 @@ -9,7 +9,7 @@ use super::{
@@ -269,7 +269,7 @@ index 67d7ff7..a9dfdf1 100644
 -                // The note, ports and nested agents ride under their row as one
 -                // list item, so the drop preview still measures one height per
 -                // workspace.
-+                // Note, ports and nested agents ride under the workspace row.
++                // Notes, ports, and nested agents sit under the workspace row.
                  let element = if note_line.is_none() && ports.is_none() && agent_rows.is_empty() {
                      element
                          .when(gap > 0., |row| row.mt(px(gap)))
@@ -294,7 +294,7 @@ index 67d7ff7..a9dfdf1 100644
                          )
                          .into_any_element()
 diff --git a/crates/herdr-gpui/src/sidebar/render/agent_rows.rs b/crates/herdr-gpui/src/sidebar/render/agent_rows.rs
-index 936c73e..8c10440 100644
+index 936c73e2fd5dc068e182c669a5c7b095e96fc570..8c104400dcc099559b11dcd6ad74c2b06e04a7d0 100644
 --- a/crates/herdr-gpui/src/sidebar/render/agent_rows.rs
 +++ b/crates/herdr-gpui/src/sidebar/render/agent_rows.rs
 @@ -67,8 +67,9 @@ impl HerdrWindow {
@@ -326,7 +326,7 @@ index 936c73e..8c10440 100644
          .highlighted(menu_open)
          .row()
 diff --git a/crates/herdr-gpui/src/sidebar/render/device_tree.rs b/crates/herdr-gpui/src/sidebar/render/device_tree.rs
-index d649b23..d5b50e8 100644
+index d649b23e6f8a36f389ca278cd737022be9a7a223..d5b50e885aa22b8646c4bc19b4360e52559fea98 100644
 --- a/crates/herdr-gpui/src/sidebar/render/device_tree.rs
 +++ b/crates/herdr-gpui/src/sidebar/render/device_tree.rs
 @@ -93,8 +93,9 @@ impl HerdrWindow {
@@ -342,7 +342,7 @@ index d649b23..d5b50e8 100644
          }
          if count == 0 {
 diff --git a/crates/herdr-gpui/src/sidebar/render/nested_agents.rs b/crates/herdr-gpui/src/sidebar/render/nested_agents.rs
-index ea403de..5fc4a68 100644
+index ea403de36e12f77a444e885882d0e4793ebc5c22..5fc4a68dce177146a451764a9bbe4f79a14eaf8b 100644
 --- a/crates/herdr-gpui/src/sidebar/render/nested_agents.rs
 +++ b/crates/herdr-gpui/src/sidebar/render/nested_agents.rs
 @@ -5,7 +5,7 @@
@@ -407,7 +407,7 @@ index ea403de..5fc4a68 100644
                  rows.push(row.into_any_element());
                  continue;
 diff --git a/crates/herdr-gpui/src/sidebar/row.rs b/crates/herdr-gpui/src/sidebar/row.rs
-index 24f3512..4c4af46 100644
+index 24f35122219ae20dba0c4e2cb9b99253e7a3022c..4c4af469160a90be55bd15815cf8a32348431d88 100644
 --- a/crates/herdr-gpui/src/sidebar/row.rs
 +++ b/crates/herdr-gpui/src/sidebar/row.rs
 @@ -426,6 +426,7 @@ pub(super) fn row(
@@ -428,14 +428,14 @@ index 24f3512..4c4af46 100644
          left_behind(name_color, theme)
      } else {
 diff --git a/justfile b/justfile
-index 10c9a2a..92c48cf 100644
+index 10c9a2a500f01d9c5b3c2da6d045b5762032ae5a..e11cbe0615717d33e60cad237e6448f4dfa0b9bc 100644
 --- a/justfile
 +++ b/justfile
 @@ -86,6 +86,12 @@ stress-linux iterations="30" cpus="0.5" filter="":
  test-sidebar:
      cargo test --locked -p herdr-gpui --features integration-test --test live_gui native_sidebar -- --ignored --nocapture --test-threads=1
  
-+# Exercise the Agent Tree parser and guide geometry without GPUI code generation.
++# Run Agent Tree path and guide tests without building GPUI.
 +test-agent-tree:
 +    mkdir -p target/agent-tree-tests
 +    rustc --edition=2024 --test crates/herdr-gpui/src/sidebar/native_tree/path.rs -o target/agent-tree-tests/path-tests

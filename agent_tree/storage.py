@@ -1,4 +1,4 @@
-"""Atomic, per-socket plugin state storage."""
+"""Safe plugin state storage for each socket."""
 
 from __future__ import annotations
 
@@ -13,7 +13,7 @@ from .model import LinkState, StateShapeError
 
 
 class StateStore:
-    """Persist links in a user state directory scoped to a Herdr socket."""
+    """Save links in user state for one Herdr socket."""
 
     def __init__(self, root: Path, socket_path: str) -> None:
         digest = hashlib.sha256(socket_path.encode("utf-8")).hexdigest()[:24]
@@ -22,7 +22,7 @@ class StateStore:
 
     @contextmanager
     def locked(self) -> Iterator[None]:
-        """Hold the per-socket lock for a state transaction.
+        """Hold the socket lock for one state change.
 
         Example: ``with store.locked(): store.save(state)``.
         """
@@ -36,7 +36,7 @@ class StateStore:
             handle.close()
 
     def load(self) -> LinkState:
-        """Load state or return the disabled empty default.
+        """Load state, or return the empty disabled state.
 
         Example: ``state = store.load()``.
         """
@@ -51,7 +51,7 @@ class StateStore:
         return LinkState.from_json(payload)
 
     def save(self, state: LinkState) -> None:
-        """Atomically persist a state value.
+        """Save all state at once.
 
         Example: ``store.save(LinkState(True, {}))``.
         """

@@ -1,74 +1,78 @@
-# Native GPUI companion
+# Custom Herdr GPUI app
 
-For a user-facing installation or update, follow the repository's
-[INSTALL.md](../INSTALL.md). It selects the latest stable upstream release,
-ports these patches when needed, validates the resulting client, and installs a
-user-local bundle with rollback metadata. The procedure below remains a
-reproducible source reference for the historical patch baseline.
+For a new install or update, use [INSTALL.md](../INSTALL.md).
+It finds the latest stable Herdr and `penso/herdr-gpui` versions. It checks that
+they work together. It changes the patches to fit the new code when needed.
+It builds, checks, and installs the app for your user. It saves the old app.
+That is the main guide for current installs.
 
-This directory contains three source patches for the native
-[Herdr GPUI client](https://github.com/penso/herdr-gpui). They consume the
-plugin's `naeliofreires_tree_path` token and add native hierarchy treatment to
-the nested Agent Tree view. Build the patched client separately using this
-guide; `herdr plugin install` installs the Python plugin only.
+This file is a code guide for the old patches. They use one fixed code version.
 
-Install and configure the plugin, its sidebar token, and the nested Agent Tree
-view using the [root README](../README.md#install-and-configure) before testing
-the companion. Native styling appears after that view is enabled.
+This directory has three source patches for the
+[Herdr GPUI client](https://github.com/penso/herdr-gpui). They use the plugin
+token `naeliofreires_tree_path`. They add custom app styling to the nested
+Agent Tree view. Build the custom app separately with this guide.
+`herdr plugin install` installs the Python plugin only. It does not build the
+custom app or install native code from Python.
 
-The patched client provides:
+First install and configure the plugin. Enable its sidebar token and the
+nested Agent Tree view. Use the [root README](../README.md#install-and-configure)
+for these steps. Native styling starts after the view is on.
 
-- workspace cards with 10px side spacing and 12px between cards;
-- headers shaded from the sidebar theme color (18%) and bold 14px workspace
-  labels for every workspace;
-- continuous ancestor and elbow guides at 20px levels;
-- an accented selected background with an absolute left indicator that does not
-  change row geometry;
-- engine icon-only agent rows while preserving task/tab title, lifecycle state,
-  and accessibility text.
+The custom app adds:
 
-These changes apply only to the nested Agent Tree view and valid bounded paths.
-Missing or malformed paths retain the released rendering. There are no
-collapsible branch controls. Without the patches, the plugin falls back to its
-textual prefix and engine labels.
+- Workspace cards with 10px side space and 12px between cards.
+- Workspace headers with an 18% shade from the sidebar color.
+- Bold workspace labels at 14px.
+- Tree lines join the rows. Each level adds 20px of space.
+- A colored selected background and a left indicator.
+- The tree lines stay in place when you pick a row.
+- The app shows the tool icon and hides the tool name. It keeps the task title,
+  work state, and text for screen readers.
+
+These changes need the nested Agent Tree view and valid paths with 1–16 bits.
+Missing or bad paths use the normal view. There is no button to hide child rows.
+Without the patches, the plugin uses text guides and tool names.
 
 ```text
 Agent Tree metadata
         |
-        +-- v1 path ----------------> native guides, cards, selection, icons
+        +-- v1 path ----------------> guides, cards, selection, icons
         |
-        +-- textual prefix ----------> released/unpatched GPUI fallback
+        +-- text prefix ------------> released client fallback
 ```
 
-For the historical baseline, install the Rust toolchain, `just`, and platform
-dependencies documented by that pinned upstream checkout. Current installs must
-read the selected release's toolchain and platform instructions instead; the
-agent runbook handles that discovery. On macOS, Xcode Command Line Tools are
-required. Linux dependencies are described in the pinned upstream [From source](https://github.com/penso/herdr-gpui/blob/a5b2df2db54061cd2785c3ddf184bce348be3fd1/README.md#from-source)
+For the old build, install the Rust code tools, `just`, and the packages for
+your OS listed in that fixed version. For a current install, read the code
+tools and OS guides for the chosen release. [INSTALL.md](../INSTALL.md)
+shows how to find them.
+
+On macOS, install Xcode Command Line Tools. For Linux packages, use the original
+project's [From source](https://github.com/penso/herdr-gpui/blob/a5b2df2db54061cd2785c3ddf184bce348be3fd1/README.md#from-source)
 and [Linux Builds](https://github.com/penso/herdr-gpui/blob/a5b2df2db54061cd2785c3ddf184bce348be3fd1/README.md#linux-builds)
 sections.
 
-## Historical patch baseline and licenses
+## Old code version and licenses
 
-The original patches target upstream commit
-[`a5b2df2db54061cd2785c3ddf184bce348be3fd1`](https://github.com/penso/herdr-gpui/tree/a5b2df2db54061cd2785c3ddf184bce348be3fd1),
-not the moving default branch. Build the latest release through [INSTALL.md](../INSTALL.md);
-use this pinned commit only when reproducing the original patch set exactly.
+The original patches use this code version from the original project:
+[`a5b2df2db54061cd2785c3ddf184bce348be3fd1`](https://github.com/penso/herdr-gpui/tree/a5b2df2db54061cd2785c3ddf184bce348be3fd1).
+Use [INSTALL.md](../INSTALL.md) for the latest release. Use this fixed code
+version only to build the old app again.
+
 Apply all three files in numeric order:
 
 1. `01-native-tree-model.patch`
 2. `02-native-sidebar-presentation.patch`
 3. `03-compact-agent-icons.patch`
 
-The patched GPUI source remains under its upstream Apache-2.0 license; see
-[`LICENSE`](LICENSE) and [`NOTICE`](NOTICE). The plugin source remains MIT-
-licensed under the repository root.
+The changed GPUI code keeps its original Apache-2.0 license. See
+[`LICENSE`](LICENSE) and [`NOTICE`](NOTICE). The plugin source keeps the MIT
+license in the repository root.
 
 ## Reproduce the patched client
 
-The following commands can be run from any directory. Replace the placeholders
-with absolute paths; the plugin checkout is the repository containing this
-file:
+Run these commands from any directory. Replace each placeholder with an
+absolute path. The plugin checkout is the repository that contains this file.
 
 ```sh
 rtk proxy git clone https://github.com/penso/herdr-gpui.git /path/to/herdr-gpui
@@ -78,16 +82,15 @@ rtk proxy git -C /path/to/herdr-gpui apply /path/to/herdr-agent-tree/native/02-n
 rtk proxy git -C /path/to/herdr-gpui apply /path/to/herdr-agent-tree/native/03-compact-agent-icons.patch
 ```
 
-Run the verification commands from the native GPUI checkout
-`/path/to/herdr-gpui`, not from the plugin checkout:
+Run the checks from `/path/to/herdr-gpui`, not from the plugin checkout:
 
 ```sh
 rtk proxy just test-agent-tree
 rtk proxy env CARGO_BUILD_JOBS=1 CARGO_PROFILE_DEV_DEBUG=0 CARGO_INCREMENTAL=0 cargo check --locked -p herdr-gpui --tests
 ```
 
-`just test-agent-tree` executes the three lightweight production path and guide
-geometry tests without generating the full GPUI test binary.
+`just test-agent-tree` runs three small production tests for path and guide
+geometry. It does not create the full GPUI test binary.
 
 On macOS only, build the debug app bundle from the same native checkout:
 
@@ -95,43 +98,43 @@ On macOS only, build the debug app bundle from the same native checkout:
 rtk proxy env CARGO_BUILD_JOBS=1 CARGO_PROFILE_DEV_DEBUG=0 CARGO_INCREMENTAL=0 just bundle debug
 ```
 
-The bundle is written to `target/debug/Herdr.app`; no command above installs or
-replaces an existing app. For Linux native builds, follow the pinned upstream
-platform instructions instead of using this macOS bundle command.
+The bundle is at `target/debug/Herdr.app`. These commands do not install or
+replace an existing app. For Linux, follow the OS guide for that code version.
 
-For an unambiguous manual check on macOS, quit any other Herdr GUI client first;
-the daemon and terminal sessions remain running. Then, from any directory,
-open the bundle you just built and reload that client's config:
+For a clear manual check on macOS, first quit every other Herdr GUI client.
+The daemon and terminal sessions can stay open. Then open the exact bundle you
+built and reload that client's config:
 
 ```sh
 rtk proxy open /path/to/herdr-gpui/target/debug/Herdr.app
 rtk proxy /path/to/herdr-gpui/target/debug/Herdr.app/Contents/MacOS/Herdr config reload
 ```
 
-The `/Applications/Herdr.app/Contents/MacOS/Herdr` command in the root README
-targets the installed, unpatched client. Native users should use the executable
-inside their built bundle for this manual check.
+The root README command
+`/Applications/Herdr.app/Contents/MacOS/Herdr` opens the installed stock app.
+For this check, use the executable inside the bundle you built.
 
-The complete GPUI test binary is intentionally not claimed as a local result:
-its code generation exceeded the available memory on the development machine.
-The bounded local evidence is type checking, three pure path/geometry tests, a
-debug bundle, and native QA on macOS.
+The full GPUI test program was not run here. The build needed more memory than
+this computer had. We checked the types, ran three path and guide tests, built
+the app, and checked it in macOS.
 
 ## Relationship to the plugin
 
-The Python plugin still reports all three tokens atomically from
+The Python plugin sends all three tokens as one report from
 `plugin:naeliofreires.agent-tree`:
 
-| Token | Native use |
+| Token | Custom app use |
 | --- | --- |
-| `naeliofreires_tree_prefix` | Fallback text guides in an unpatched client. |
-| `naeliofreires_tree_order` | Stable agent-view ordering. |
-| `naeliofreires_tree_path` | `v1:` plus 1–16 binary bits for native guides. |
+| `naeliofreires_tree_prefix` | Text guides in an unpatched client. |
+| `naeliofreires_tree_order` | Stable agent-view order. |
+| `naeliofreires_tree_path` | `v1:` plus 1–16 binary bits for guides. |
 
-For the path token, each ancestor bit is `1` when a later sibling continues
-that vertical guide and `0` when the ancestor is the last sibling. The final bit
-describes the current row (`1` non-last, `0` last). The parser rejects missing,
-malformed, non-binary, and overlong values.
-The native companion therefore ignores invalid paths without changing ordinary
-agent rows. Parent links, lifecycle metadata, navigation, and daemon state
-remain owned by the plugin and Herdr.
+Each bit describes a row in the path. The first bits are for parent rows.
+A bit is `1` when there is a later row at the same level. Its line keeps going
+down. It is `0` when that row is last at its level. The last bit describes the
+current row: `1` means not last, and `0` means last.
+
+The parser checks the path. It rejects missing values, values with characters
+other than `0` and `1`, and values that are too long. The custom app ignores bad
+paths and keeps normal rows. The plugin and Herdr still keep parent links,
+work state, navigation, and server state.

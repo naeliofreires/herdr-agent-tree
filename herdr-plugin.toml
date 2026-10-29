@@ -1,8 +1,8 @@
 id = "naeliofreires.agent-tree"
-name = "Agent Tree (cards require native client)"
+name = "Agent Tree (cards need the custom app)"
 version = "0.2.1"
 min_herdr_version = "0.9.0"
-description = "Text tree for parent/child agents. Workspace cards require the native GPUI client."
+description = "The Python plugin shows a text tree. The custom GPUI app adds workspace cards."
 platforms = ["macos", "linux"]
 
 [[startup]]
@@ -10,31 +10,31 @@ command = ["python3", "-m", "agent_tree", "event"]
 
 [[actions]]
 id = "setup"
-title = "Setup: workspace cards need the native client"
+title = "Show setup steps"
 contexts = ["workspace"]
 command = ["python3", "-m", "agent_tree", "setup"]
 
 [[actions]]
 id = "enable"
-title = "Enable agent tree"
+title = "Turn on"
 contexts = ["workspace"]
 command = ["python3", "-m", "agent_tree", "enable"]
 
 [[actions]]
 id = "sync"
-title = "Sync agent tree"
+title = "Update tree"
 contexts = ["workspace"]
 command = ["python3", "-m", "agent_tree", "sync"]
 
 [[actions]]
 id = "disable"
-title = "Disable agent tree"
+title = "Turn off"
 contexts = ["workspace"]
 command = ["python3", "-m", "agent_tree", "disable"]
 
 [[actions]]
 id = "list"
-title = "List agent tree links"
+title = "Show links"
 contexts = ["workspace"]
 command = ["python3", "-m", "agent_tree", "list"]
 

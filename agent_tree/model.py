@@ -1,4 +1,4 @@
-"""Typed models and validation for the Herdr agent tree."""
+"""Typed models and checks for the Herdr agent tree."""
 
 from __future__ import annotations
 
@@ -10,12 +10,12 @@ MAX_DEPTH = 16
 
 
 class StateShapeError(ValueError):
-    """Raised when persisted plugin state has an invalid shape."""
+    """Raised when saved plugin state has the wrong shape."""
 
 
 @dataclass(frozen=True)
 class Agent:
-    """A bounded projection of one daemon agent record.
+    """The fields used from one daemon agent record.
 
     Example: ``Agent.from_record(record)``.
     """
@@ -46,7 +46,7 @@ class Agent:
 
 @dataclass(frozen=True)
 class LinkState:
-    """Plugin-owned enabled flag and terminal-id parent links.
+    """The enabled flag and parent links owned by this plugin.
 
     Example: ``LinkState.from_json({})`` creates a disabled empty state.
     """

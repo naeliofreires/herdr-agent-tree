@@ -1,2 +1,2 @@
-# Unified patches retain a context marker on otherwise empty lines.
+# Patch files need a space on blank context lines.
 native/*.patch -whitespace

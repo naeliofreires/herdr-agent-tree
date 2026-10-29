@@ -35,13 +35,13 @@ class EnableApi:
 
 
 class InstallationTests(unittest.TestCase):
-    def test_setup_explains_plugin_and_native_boundary(self) -> None:
+    def test_setup_explains_plugin_and_custom_app_boundary(self) -> None:
         output = SetupOutput()
         write_installation_guide(output)
         guide = output.getvalue()
-        self.assertIn("Python plugin provides", guide)
-        self.assertIn("patched Herdr GPUI native client", guide)
-        self.assertIn("does not build or modify", guide)
+        self.assertIn("Python plugin shows agents in a text tree", guide)
+        self.assertIn("Workspace cards need the custom app", guide)
+        self.assertIn("does not build or change", guide)
         self.assertIn("/INSTALL.md", guide)
         self.assertIn("README.md#install-and-configure", guide)
         self.assertIn("README.md#install-with-one-prompt", guide)
@@ -49,14 +49,10 @@ class InstallationTests(unittest.TestCase):
     def test_setup_action_contract_is_workspace_scoped(self) -> None:
         manifest_path = Path(__file__).parents[1] / "herdr-plugin.toml"
         manifest = tomllib.loads(manifest_path.read_text())
-        self.assertEqual(manifest["name"], "Agent Tree (cards require native client)")
-        self.assertIn(
-            "Workspace cards require the native GPUI client", manifest["description"]
-        )
+        self.assertEqual(manifest["name"], "Agent Tree (cards need the custom app)")
+        self.assertIn("custom GPUI app adds workspace cards", manifest["description"])
         action = next(entry for entry in manifest["actions"] if entry["id"] == "setup")
-        self.assertEqual(
-            action["title"], "Setup: workspace cards need the native client"
-        )
+        self.assertEqual(action["title"], "Show setup steps")
         self.assertEqual(action["contexts"], ["workspace"])
         self.assertEqual(action["command"], ["python3", "-m", "agent_tree", "setup"])
 

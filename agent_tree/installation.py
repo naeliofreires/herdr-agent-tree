@@ -1,4 +1,4 @@
-"""User-facing setup guidance for the Python plugin and native companion."""
+"""Print setup steps for the plugin and custom app."""
 
 from __future__ import annotations
 
@@ -6,29 +6,28 @@ from typing import TextIO
 
 INSTALL_GUIDE = """Herdr Agent Tree setup
 
-For the complete experience, give one prompt to a coding agent with local
-terminal access. Copy the prompt for the latest stable Herdr and native styles:
+The Python plugin shows agents in a text tree. A tree links parent and child
+agents. Workspace cards need the custom app. This is the Herdr GPUI app with
+our code changes.
+
+For the full setup, give one prompt to a coding agent that can use your
+terminal. Use this prompt for the latest stable Herdr and custom app:
 https://github.com/naeliofreires/herdr-agent-tree/blob/main/README.md#install-with-one-prompt
 
-The Python plugin provides the parent/child hierarchy and textual sidebar guides.
-Workspace cards, darker headers, continuous native guides, accent selection, and
-icon-only agents require the patched Herdr GPUI native client.
+Install the latest stable Herdr version and the latest stable herdr-gpui
+version. Build and use the custom app for workspace cards.
 
-herdr plugin install installs this plugin only; it does not build or modify
-the Herdr GUI. For complete agent-assisted native install and update steps, see:
+herdr plugin install installs this plugin only. It does not build or change the
+Herdr app. For full install and update steps, see:
 https://github.com/naeliofreires/herdr-agent-tree/blob/main/INSTALL.md
 
-Configure and enable the plugin using:
+Set up and turn on the plugin using:
 https://github.com/naeliofreires/herdr-agent-tree/blob/main/README.md#install-and-configure
-
-After building the native companion, launch the bundle by its exact path and
-verify it is the patched app. Do not assume a generic Herdr.app includes these
-native features.
 """
 
 
 def write_installation_guide(output: TextIO) -> None:
-    """Write plugin/native setup guidance.
+    """Write setup steps for the plugin and custom app.
 
     Example: write_installation_guide(sys.stdout).
     """

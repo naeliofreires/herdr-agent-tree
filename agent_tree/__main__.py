@@ -1,4 +1,4 @@
-"""Run the plugin as ``python3 -m agent_tree``."""
+"""Run the plugin with ``python3 -m agent_tree``."""
 
 from .cli import main
 

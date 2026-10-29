@@ -1,29 +1,33 @@
-# Install the native Agent Tree client
+# Install the custom Agent Tree app
 
-This runbook is the execution path for the complete Agent Tree installation,
-including when the user starts with only the one-prompt request in [README.md](README.md)
-and no Herdr installation or local checkout. It builds a patched Herdr GPUI
-client from the latest stable compatible upstream releases available at
-execution time. It does not mutate an upstream repository or managed plugin
-installation directory.
+This guide installs the plugin and custom app. Start with the prompt in
+[README.md](README.md). Find the latest stable versions at install time.
+Work in a new build folder. Keep the files of other installed apps.
 
-The Python plugin and the native client are separate layers:
+Words used here: a daemon is a server; a SHA is a code ID; a hash is a file ID.
+A tag is a version name. A patch is a file with code changes.
+Metadata means extra details about an agent or app. A text fallback is the
+text tree used when the custom view is not available. Lifecycle means the
+agent's current state. Screen reader labels help people use assistive tools.
+Code signing adds a signature to an app. It helps check that its code did not
+change. A fixture is test data. Rollback means use the old app again. A protocol
+is how app and server talk. On macOS, an app bundle is a folder ending in `.app`.
+
+The Python plugin and the custom app are two parts:
 
 ```text
-Herdr plugin install -> metadata, links, textual fallback
-native build         -> workspace cards, native guides, selection and icons
+Herdr plugin install -> saved tree data, links, text fallback
+custom app build     -> workspace cards, guides, selection and icons
 ```
 
-The plugin is listed as **Agent Tree (cards require native client)** so the
-dependency is visible in Herdr's installation preview. The Python installer
-does not build the native client. Use this runbook to reach the complete result.
+The plugin is shown as **Agent Tree (cards need the custom app)**. The Python
+installer does not build the custom app.
 
-If Git is missing, install it from the official platform instructions and verify
-it before cloning. Install Python before invoking any plugin command; the
-complete workflow does not assume either prerequisite exists.
+If Git or Python is missing, install it from its official guide and check it
+before use. This guide assumes neither tool is present.
 
-If no checkout exists, resolve this public repository outside Herdr's managed
-plugin roots, then read both instruction files before changing anything:
+If there is no local copy, clone this public repository outside Herdr's managed
+plugin roots. Then read both instruction files before making changes:
 
 ```sh
 rtk proxy git clone https://github.com/naeliofreires/herdr-agent-tree.git /path/to/herdr-agent-tree
@@ -31,80 +35,63 @@ rtk proxy sed -n '1,220p' /path/to/herdr-agent-tree/AGENTS.md
 rtk proxy sed -n '1,320p' /path/to/herdr-agent-tree/INSTALL.md
 ```
 
-The raw runbook is also available at
+The raw guide is also at
 https://raw.githubusercontent.com/naeliofreires/herdr-agent-tree/main/INSTALL.md.
-Continue with the inspection and installation stages below; the Python plugin
-installer does not build or install the native client.
+The Python installer does not build the custom app. RTK is an optional command
+wrapper, not a project dependency; remove `rtk proxy` if it is unavailable.
 
-Shell examples use the optional RTK wrapper, matching this repository's README.
-If RTK is unavailable on the user's machine, omit `rtk proxy`.
+## 1. Check before changing anything
 
-## 1. Inspect before changing anything
-
-Record the operating system, architecture, current user, Herdr daemon and GUI
-versions, exact GUI executable, and whether a daemon is running. Read any
-`AGENTS.md`, toolchain file, README, and `justfile` in every selected checkout.
-Check for:
+Record the OS, CPU, user, Herdr and GUI versions, GUI path, and daemon status.
+Read `AGENTS.md`, Rust build files, READMEs, and `justfile` files. Check:
 
 - an existing managed or locally linked `naeliofreires.agent-tree` plugin;
 - disabled plugin state and recent plugin logs;
 - custom Herdr sidebar rows and Agent Tree settings;
 - an existing user-local Agent Tree bundle and its recorded source commit;
-- a dirty native source checkout that must not be reused.
+- a dirty native source folder that must not be reused.
 
-Preserve existing configuration, agent sessions, links, and user edits. Use a
-named socket when the user has more than one daemon; never guess the target from
-the current directory. Do not stop a running daemon or kill agent processes. If
-the agent itself is running inside the Herdr GUI that must be replaced,
-checkpoint or coordinate that session before asking the GUI to quit.
+Keep config, sessions, links, and user edits. Use a named socket for more than
+one daemon. Do not stop a daemon or kill agents. Save install work before
+asking its GUI to quit.
 
-## 2. Select and prepare the compatible upstream pair
+## 2. Choose versions that work together
 
-Discover the current latest stable releases at execution time from both official
-repositories: the Herdr daemon at `https://github.com/herdrdev/herdr` and the
-GPUI client at `https://github.com/penso/herdr-gpui`. Prefer each repository's
-official release API, with the release page as a fallback, for example:
+Find the latest stable release in both official repositories: Herdr at
+`https://github.com/herdrdev/herdr` and GPUI at
+`https://github.com/penso/herdr-gpui`. Use each release API first:
 
 ```sh
 rtk proxy gh api repos/herdrdev/herdr/releases/latest
 rtk proxy gh api repos/penso/herdr-gpui/releases/latest
 ```
 
-If `gh` is unavailable, use the official releases pages or APIs with equivalent
-read-only requests. Record each release tag, resolve each tag to its full commit
-SHA separately (a `target_commitish` may be a moving branch), then verify the
-GUI's documented daemon/protocol compatibility. If the current latest pair
-cannot communicate, report that blocker rather than selecting an older pair.
-Never silently use `main`, a preview, or an old pinned baseline. Do not
-downgrade a newer installed preview without explicit approval.
+Use official release pages or APIs if `gh` is unavailable. Record each tag and
+resolve it to a full commit SHA. A `target_commitish` can move, so do not use it
+as the SHA. Check GUI and daemon protocol versions. If the latest pair cannot
+work together, report a blocker. Do not silently use `main`, a preview, or an
+old base, or downgrade a newer preview without approval.
 
-If the daemon is missing, install the selected stable release using the current
-official Herdr documentation and exact commands discovered from that release's
-README or CLI help, then start it through the normal supported startup path and
-validate its version and protocol before opening the GUI. Use the existing
-official install channel for updates; replacing an installed CLI binary does not
-replace a compatible server that is already running. Record both installed CLI
-and running-daemon versions/protocol. An older compatible server with active
-panes may remain running only when safe, but report the pending server upgrade.
-For update guidance, consult [Herdr update docs](https://herdr.dev/docs/install/#update),
+If the daemon is missing, install the selected stable release with the current
+official guide and start it normally. Check version and protocol before opening
+the GUI. Use the same official channel for updates. Replacing a CLI file does
+not replace a running server. Record installed CLI and running server versions
+and protocol. An older server with active panes may stay if it works, but report
+the pending upgrade.
+
+Read [Herdr update docs](https://herdr.dev/docs/install/#update),
 [live handoff](https://herdr.dev/docs/session-state/#live-handoff), and the
-[running-session troubleshooting note](https://herdr.dev/docs/troubleshooting/#herdr-updated-but-the-running-session-is-still-old).
-Experimental `herdr update --handoff` is supported only for Herdr-managed direct
-installs, not package-manager installs. Use it only with explicit authorization
-for experimental handoff; preserve running panes rather than stopping the server
-to force the latest claim.
-Report a compatibility blocker if safe upgrade or handoff is unavailable;
-compiling the GUI alone is insufficient.
+[old session note](https://herdr.dev/docs/troubleshooting/#herdr-updated-but-the-running-session-is-still-old).
+The experimental `herdr update --handoff` is for direct Herdr-managed installs
+only and needs approval. Keep panes alive. Report unsafe upgrades as blockers.
 
-Create a persistent user-local build directory outside this plugin checkout and
-outside Herdr's managed plugin roots. Clone the selected GPUI tag there, verify
-its full SHA, and create a disposable branch or worktree for the port. Use the
-official daemon binary/install channel unless its documentation requires a
-source checkout. Read the selected revisions' toolchain, platform prerequisites,
-and build instructions before installing missing Rust, just, or system tools.
-Use the toolchain required by those exact revisions, not historical patch notes.
+Create a user-local build folder outside this source folder and Herdr's managed
+roots. Copy the GPUI tag there, check its SHA, and use a short-lived separate
+code copy.
+Use the official daemon binary channel unless its guide requires source. Read
+the selected Rust and platform guides before installing code tools.
 
-## 3. Apply or port the native work
+## 3. Add the custom app changes
 
 Apply these files in order:
 
@@ -112,52 +99,52 @@ Apply these files in order:
 2. `native/02-native-sidebar-presentation.patch`
 3. `native/03-compact-agent-icons.patch`
 
-Try a normal three-way patch first. On a conflict, keep the selected upstream
-code as the base and port the behavior described in [native/README.md](native/README.md):
-the `v1:` path model, workspace cards, continuous guides, selected-row marker,
-and compact agent identity while preserving lifecycle and accessibility data.
-Inspect every hunk; never use a force option or skip a conflicting patch without
-reporting it. Add or update focused upstream tests when the port changes code.
-Preserve upstream Apache-2.0 attribution and this project's MIT license.
+Try the normal patch tool first. If one fails, keep the selected release as the
+base and copy the change into the current code. Add the `v1:` path model,
+cards, guides, selected marker, and small agent icons from
+[native/README.md](native/README.md). Keep agent state and labels for assistive
+tools. Read every conflict. Do not force or skip a patch without a report. A
+report does not make the install complete: all three changes must be applied
+and tested. Update the tests when you change code. Keep Apache-2.0 and MIT notices.
 
 ## 4. Verify before installation
 
-Run the plugin suite from this checkout:
+Run the plugin suite from this source folder:
 
 ```sh
 rtk proxy python3 -m unittest discover -s tests
 ```
 
-From the patched upstream checkout, discover the current equivalent of the
-native checks before running them. At minimum, run the patch-provided Agent Tree
-path/geometry test (`just test-agent-tree` when the target revision provides it)
-and a locked package check with the resource limits appropriate to the machine:
+All tests must pass. Report the test result.
+
+From the changed GPUI source folder, run its native checks. At least run the
+Agent Tree path and line tests (`just test-agent-tree` when available). Also
+run the package check with fixed dependency versions:
 
 ```sh
 rtk proxy just test-agent-tree
 rtk proxy env CARGO_BUILD_JOBS=1 CARGO_PROFILE_DEV_DEBUG=0 CARGO_INCREMENTAL=0 cargo check --locked -p herdr-gpui --tests
 ```
 
-Run the upstream sidebar, build, lint, or GUI checks that exist at the selected
-revision. Do not claim a visual check when no desktop session is available.
-Build a complete bundle with the selected revision's current recipe, then
-verify its executable identity and recorded upstream SHA. On macOS, this is
-normally `just bundle` for `target/release/Herdr.app`; on Linux, follow the
-selected revision's documented package or user-local installation method.
-Never run a macOS command on Linux or treat a debug build as a completed
-installation without recording that choice.
+Run available sidebar, build, lint, and GUI checks from the original project.
+Do not claim a
+visual check without a desktop session. Build a full bundle with the selected
+recipe and check its executable and source SHA. On macOS this is often
+`just bundle` for `target/release/Herdr.app`; on Linux use that release's guide.
+Do not run macOS commands on Linux.
 
-## 5. Configure the plugin and native view
+## 5. Set up the plugin and custom app
 
-Install or link the Python plugin exactly once. Preserve the existing source
-kind: use the managed update command supported by the installed Herdr CLI, or
-reinstall the same GitHub source when that CLI has no `plugin update` command.
-Use `plugin link` for a local checkout. If an earlier install left the plugin
-disabled, enable it explicitly and inspect its asynchronous log for a
-successful sync; an accepted invocation is not proof of completion.
+Install or link the Python plugin once. Keep its source kind. Use the managed
+update command, or reinstall the same GitHub source when no update command
+exists. Use `plugin link` only for a local source folder. Do not replace a
+managed source with a local one.
 
-The registry's enabled flag and the tree's saved enabled state are distinct.
-Enable the registry entry if necessary, then invoke the view explicitly:
+If the plugin is off, turn it on and read its action log. Herdr can accept a
+command while it is still running. Wait for a result that says it passed.
+
+Herdr's plugin list has one on/off setting. The saved tree has another one.
+Both must be on:
 
 ```sh
 rtk proxy herdr plugin action invoke naeliofreires.agent-tree.enable
@@ -171,9 +158,8 @@ Keep `state_icon` first when adding the textual fallback token:
 rows = [["state_icon", { token = "$naeliofreires_tree_prefix", dim = true }, "agent", "tab"]]
 ```
 
-The native view requires nested placement and inline metadata. Apply the values
-below while preserving unrelated settings. If the user explicitly requires an
-incompatible layout, explain the conflict instead of claiming cards are enabled:
+The custom app needs nested placement and inline metadata. Apply these values
+while preserving other settings:
 
 ```toml
 agents_placement = "nested"
@@ -184,73 +170,58 @@ edge_rail = false
 inline = true
 ```
 
-Back up each config before editing. Reload the daemon and the exact client being
-used; do not reload the standard `/Applications` client while intending to test
-the custom bundle.
+Back up each config before editing. Reload the daemon and exact client in use.
+Do not reload `/Applications/Herdr.app` when testing the custom bundle.
 
-## 6. Install reversibly
+## 6. Install with rollback
 
-Stage the complete validated bundle before touching the installed target. The
-default macOS target is `~/Applications/Herdr Agent Tree.app`; leave
-`/Applications/Herdr.app` untouched unless the user explicitly requests replacement. If a prior custom
-bundle exists, move it to a versioned backup before installing the new one and
-keep a record containing the release tag, full SHA, patch hashes, artifact path,
-and config backup paths.
+Prepare the complete, tested app bundle before changing the target. On macOS,
+use `~/Applications/Herdr Agent Tree.app`; leave `/Applications/Herdr.app`
+untouched unless asked. Move an old custom bundle to a versioned backup first.
+Record the release tag, full SHA, patch hashes, built file path, and config paths.
 
-Give the staged bundle a distinct display name, **Herdr Agent Tree**, and bundle
-identifier, such as `dev.naeliofreires.herdr-agent-tree`, so it can be selected
-separately from the standard app. Finalize its bundle metadata and local code
-signature before recording its executable hash. Preserve an existing custom
-installation's daemon connection and configuration paths when updating it.
+Give it the display name **Herdr Agent Tree** and bundle ID
+`dev.naeliofreires.herdr-agent-tree`. Finalize metadata and local code
+signature before recording the hash. Keep daemon and config paths when updating.
 
-Quit only the GUI client through its documented app command, after checking that
-doing so will not terminate the agent performing the installation. Leave the
-Herdr daemon and its agent sessions running. Move the staged bundle into place
-atomically; on any failure restore the previous custom bundle and config backups.
-Use elevated OS permissions only when the official install path requires them
-and the operator approves. Do not bypass Gatekeeper, remove quarantine flags, or
-claim that an unsigned local build is equivalent to the signed upstream app.
+Quit only the GUI client with its documented app command, after checking it
+will not terminate the install agent. Keep the daemon and sessions running.
+Move the bundle in one safe move. On failure, restore the old bundle and config.
+Use elevated OS permissions only when the official path needs them and approval
+exists. Do not bypass Gatekeeper, remove quarantine flags, or call an unsigned
+build an upstream app.
 
 ## 7. Verify the installed result
 
-Record the installed executable's available build-info output. Some revisions
-do not include a source SHA there; obtain that identity from the verified Git
-checkout and record it with the build. Hash the finalized staged executable
-and the installed executable and require an exact match. Signing changes must
-be completed before this comparison; build-info alone does not prove our
-changes are installed.
-Store the executable hash with the release SHA and patch hashes. Launch the
-installed bundle by its absolute path, not by app name, and confirm that the
-running GUI executable is inside that bundle. Run Herdr config validation and
-reload the same client.
-Confirm the plugin registry entry and saved Agent Tree view are enabled, the
-plugin log reports a successful enable/sync, and all three metadata tokens are
-present on the actual pane context. In a desktop session, inspect a workspace
-with distinct linked panes. Completion requires workspace cards with 10px side
-spacing and 12px gaps, darker headers, continuous ancestor/elbow guides, a
-selected marker that does not shift guide geometry, and icon-only agents that
-retain task/tab title, lifecycle state, and accessibility labels. Use temporary
-links only when safe and remove them afterward.
+Record build information and the verified source SHA. Hash the final prepared
+and installed executables and require an exact match. Finish signing first.
+Store the executable hash with the release SHA and patch hashes. Build
+information alone does not prove our code is running.
 
-On a fresh install with no detected agents, use a clearly labelled temporary
-verification workspace with real panes and fixture agent reports. The pattern
-in [tests_live/test_daemon.py](tests_live/test_daemon.py) avoids starting provider
-agents or changing existing parent links. Verify the cards and tree, unlink
-fixture children while their panes still exist, then remove only that temporary
-workspace. Empty workspaces do not receive cards without agent metadata.
+Launch the bundle by absolute path, not app name. Check the running PID and
+executable path inside that bundle. Validate config and reload the same client.
+Check the plugin list and saved view. Check for a passed plugin log and all
+three tokens on the real panes. In a desktop session, check linked panes. Completion
+needs cards with 10px side spacing, 12px gaps, darker headers, continuous
+tree lines, a selected row mark that stays in place, and agent icons that keep
+task/tab titles, work state, and screen reader labels. Remove test links.
 
-If desktop inspection is unavailable, report the build and metadata checks as
-verified and every visual criterion as pending. If a new stable release cannot
-be safely selected, a patch cannot be ported, or the GUI cannot be launched,
-report the blocker and all safe completed work without claiming completion. The
-final report must include daemon/GUI/plugin versions, exact release tags and
-SHAs, patch or port conflicts, executable hash and path, tests, installed path,
-backup/rollback path, and every pending visual check. A build, setup guide, or
-accepted command invocation alone is not a completed install.
+On a fresh install with no agents, use a labelled temporary workspace with real
+panes and test agent data. The pattern in
+[tests_live/test_daemon.py](tests_live/test_daemon.py)
+avoids provider agents and existing parent links. Check cards and tree. Remove
+test links before their panes and workspace. Empty workspaces do not receive
+cards without agent metadata.
 
-Later updates repeat this workflow: select the new stable release, port and test
-the patches, stage a new bundle, preserve the previous version, and record the
-new provenance. Official Herdr updates may replace a system app only when the
-user explicitly opted into that target; rerun this workflow afterward.
-Update the custom client through this runbook so the native patches are carried
-forward to the selected stable release.
+If desktop inspection is unavailable, report build and metadata checks as done
+and visual checks as pending. If a stable pair cannot be selected, a patch
+cannot be copied into the current code, or the GUI cannot launch, report the
+blocker and safe work only. Do not claim completion. The final report must
+include daemon, GUI, and plugin versions; release tags and SHAs; patch
+conflicts; executable hash/path; tests; install path; backup/rollback path;
+and all pending visual checks. A
+build, setup guide, or accepted command is not enough.
+
+Use this guide again for updates. Find the new stable versions. Add and test
+all our code changes. Keep the old app before you add the new one.
+Save the new code and file IDs. Change a system app only when the user asks.

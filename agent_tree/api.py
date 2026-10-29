@@ -1,4 +1,4 @@
-"""Small retrying JSON-lines client for Herdr's Unix socket API."""
+"""Small client with retries for Herdr's Unix socket API."""
 
 from __future__ import annotations
 
@@ -13,7 +13,7 @@ Transport = Callable[[bytes, float], bytes]
 
 
 class AgentTreeApi(Protocol):
-    """Minimal API surface used by tree commands and test fakes."""
+    """Small API used by tree commands and test fakes."""
 
     def agents(self) -> list[dict[str, object]]: ...
 
@@ -27,7 +27,7 @@ class AgentTreeApi(Protocol):
 
 
 class ApiError(RuntimeError):
-    """Raised for a daemon protocol or operation failure."""
+    """Raised when the daemon request fails."""
 
     def __init__(self, message: str, code: str | None = None) -> None:
         super().__init__(message)
@@ -35,14 +35,14 @@ class ApiError(RuntimeError):
 
 
 class HerdrApi:
-    """Call Herdr operations with bounded retries and injectable transport."""
+    """Call Herdr with a time limit. Tests can use their own send function."""
 
     def __init__(self, socket_path: str, transport: Transport | None = None) -> None:
         self.socket_path = socket_path
         self.transport = transport or self._unix_transport
 
     def request(self, method: str, params: dict[str, object]) -> dict[str, object]:
-        """Send one bounded request; example: ``api.request("agent.list", {})``."""
+        """Send one request with a time limit; example: ``api.request("agent.list", {})``."""
         request_id = f"agent-tree-{time.time_ns()}"
         payload = self._encode(request_id, method, params)
         deadline = time.monotonic() + 2.0
@@ -65,7 +65,7 @@ class HerdrApi:
         return json.dumps(request, separators=(",", ":")).encode("utf-8") + b"\n"
 
     def agents(self) -> list[dict[str, object]]:
-        """Return live agent records.
+        """Return current agent records.
 
         Example: ``agents = api.agents()``.
         """
@@ -76,7 +76,7 @@ class HerdrApi:
         return [self._agent_record(agent) for agent in agents]
 
     def panes(self) -> list[dict[str, object]]:
-        """Return every live pane record.
+        """Return current pane records.
 
         Example: ``panes = api.panes()``.
         """
@@ -93,7 +93,7 @@ class HerdrApi:
         return agent
 
     def report(self, pane_id: str, tokens: dict[str, str | None]) -> None:
-        """Publish plugin-owned metadata for one pane.
+        """Send this plugin's metadata for one pane.
 
         Example: ``api.report("w1:p1", {"key": "value"})``.
         """
@@ -101,7 +101,7 @@ class HerdrApi:
         self.request("pane.report_metadata", params)
 
     def set_view(self) -> None:
-        """Install the Agent Tree projection.
+        """Set the Agent Tree view.
 
         Example: ``api.set_view()``.
         """
@@ -113,7 +113,7 @@ class HerdrApi:
         self.request("agent.view.set", params)
 
     def clear_view(self) -> None:
-        """Remove this plugin's Agent Tree projection.
+        """Clear this plugin's Agent Tree view.
 
         Example: ``api.clear_view()``.
         """

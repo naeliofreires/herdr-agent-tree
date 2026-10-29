@@ -1,5 +1,5 @@
 diff --git a/crates/herdr-gpui/src/sidebar.rs b/crates/herdr-gpui/src/sidebar.rs
-index 22b7842..ccfd14c 100644
+index 22b7842ccccbf2852fab8f096ccc39f4e472935a..ccfd14c943a7aec85feb26163f02806f1ae6920e 100644
 --- a/crates/herdr-gpui/src/sidebar.rs
 +++ b/crates/herdr-gpui/src/sidebar.rs
 @@ -12,6 +12,7 @@ mod hover;
@@ -12,11 +12,11 @@ index 22b7842..ccfd14c 100644
  mod rail;
 diff --git a/crates/herdr-gpui/src/sidebar/native_tree.rs b/crates/herdr-gpui/src/sidebar/native_tree.rs
 new file mode 100644
-index 0000000..bc7b8e3
+index 0000000000000000000000000000000000000000..780955cc2d84902a414e3d57b387477c3d86ba9d
 --- /dev/null
 +++ b/crates/herdr-gpui/src/sidebar/native_tree.rs
 @@ -0,0 +1,256 @@
-+//! Native tree affordances for the opt-in Agent Tree plugin view.
++//! Tree support for the optional Agent Tree plugin view.
 +
 +use super::tokens::{ResolvedToken, TokenKind};
 +use crate::config::{AgentsPlacement, FontConfig, Theme};
@@ -99,7 +99,7 @@ index 0000000..bc7b8e3
 +        .collect()
 +}
 +
-+/// Paint the branch path over a row; e.g. `guides(path, theme.muted)`.
++/// Draw branch guides over a row; e.g. `guides(path, theme.muted)`.
 +pub(super) fn guides(path: TreePath, color: u32) -> Div {
 +    let painter = canvas(
 +        |_, _, _| (),
@@ -113,7 +113,7 @@ index 0000000..bc7b8e3
 +        .child(painter)
 +}
 +
-+/// Prepare workspace typography; e.g. `workspace_font(true, &config.sidebar)`.
++/// Set workspace text style; e.g. `workspace_font(true, &config.sidebar)`.
 +pub(super) fn workspace_font(enhanced: bool, sidebar_font: &FontConfig) -> FontConfig {
 +    let mut font = sidebar_font.clone();
 +    if enhanced {
@@ -122,7 +122,7 @@ index 0000000..bc7b8e3
 +    font
 +}
 +
-+/// Resolve workspace enhancement and font together; e.g. `workspace_context(...)`.
++/// Get workspace style and font; e.g. `workspace_context(...)`.
 +pub(super) fn workspace_context(
 +    nested: bool,
 +    snapshot: &ClientShellSnapshot,
@@ -133,7 +133,7 @@ index 0000000..bc7b8e3
 +    (enhanced, workspace_font(enhanced, sidebar_font))
 +}
 +
-+/// Apply the native workspace header treatment when enabled.
++/// Style the workspace header when enabled.
 +pub(super) fn style_workspace(row: Stateful<Div>, enhanced: bool, theme: &Theme) -> Stateful<Div> {
 +    if enhanced {
 +        workspace_header(row, theme)
@@ -274,7 +274,7 @@ index 0000000..bc7b8e3
 +}
 diff --git a/crates/herdr-gpui/src/sidebar/native_tree/path.rs b/crates/herdr-gpui/src/sidebar/native_tree/path.rs
 new file mode 100644
-index 0000000..9e5d083
+index 0000000000000000000000000000000000000000..8b23b1861d4802ff759d2854c6a9df11942bc2f8
 --- /dev/null
 +++ b/crates/herdr-gpui/src/sidebar/native_tree/path.rs
 @@ -0,0 +1,61 @@
@@ -290,18 +290,18 @@ index 0000000..9e5d083
 +}
 +
 +impl TreePath {
-+    /// Return the number of ancestor levels; e.g. `TreePath::depth()` for `v1:010` is `2`.
++    /// Return ancestor depth; e.g. `TreePath::depth()` for `v1:010` is `2`.
 +    pub fn depth(self) -> usize {
 +        usize::from(self.length.saturating_sub(1))
 +    }
 +
-+    /// Return whether a guide continues at `level`; e.g. `v1:10` continues at level `0`.
++    /// Say if a guide continues at `level`; e.g. `v1:10` continues at level `0`.
 +    pub fn continues_at(self, level: usize) -> bool {
 +        level < usize::from(self.length) && self.bits[level]
 +    }
 +}
 +
-+/// Parse a bounded native tree path; e.g. `parse_path(Some("v1:01"))`.
++/// Parse a limited tree path; e.g. `parse_path(Some("v1:01"))`.
 +pub fn parse_path(value: Option<&str>) -> Option<TreePath> {
 +    let digits = value?.strip_prefix(PATH_PREFIX)?;
 +    let bounded = (1..=16).contains(&digits.len());
@@ -319,17 +319,17 @@ index 0000000..9e5d083
 +    })
 +}
 +
-+/// Return the x-offset for a guide level; e.g. `guide_origin(2)`.
++/// Return the x offset for a guide level; e.g. `guide_origin(2)`.
 +pub fn guide_origin(depth: usize) -> f32 {
 +    GUIDE_OFFSET + depth as f32 * TREE_INDENT
 +}
 +
-+/// Return row indentation for a path depth; e.g. `row_indent(2)`.
++/// Return row indent for a path depth; e.g. `row_indent(2)`.
 +pub fn row_indent(depth: usize) -> f32 {
 +    depth as f32 * TREE_INDENT
 +}
 +
-+/// Expand a path into paint levels; e.g. `guide_levels(parse_path(Some("v1:0")).unwrap())`.
++/// Get guide levels from a path; e.g. `guide_levels(parse_path(Some("v1:0")).unwrap())`.
 +pub fn guide_levels(path: TreePath) -> Vec<(usize, bool)> {
 +    (0..=path.depth())
 +        .map(|level| (level, path.continues_at(level)))
@@ -341,7 +341,7 @@ index 0000000..9e5d083
 +mod tests;
 diff --git a/crates/herdr-gpui/src/sidebar/native_tree/path/tests.rs b/crates/herdr-gpui/src/sidebar/native_tree/path/tests.rs
 new file mode 100644
-index 0000000..72571c0
+index 0000000000000000000000000000000000000000..72571c02deedd65be1eea87b368a1fbe1bd56a03
 --- /dev/null
 +++ b/crates/herdr-gpui/src/sidebar/native_tree/path/tests.rs
 @@ -0,0 +1,29 @@
@@ -376,7 +376,7 @@ index 0000000..72571c0
 +}
 diff --git a/crates/herdr-gpui/src/sidebar/native_tree/tests.rs b/crates/herdr-gpui/src/sidebar/native_tree/tests.rs
 new file mode 100644
-index 0000000..9613f36
+index 0000000000000000000000000000000000000000..9613f364101e0caba10a6c930546fc2181bdff9b
 --- /dev/null
 +++ b/crates/herdr-gpui/src/sidebar/native_tree/tests.rs
 @@ -0,0 +1,53 @@

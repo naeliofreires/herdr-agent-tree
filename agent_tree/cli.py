@@ -17,20 +17,20 @@ NOT_FOUND_CODES = {"pane_not_found", "agent_pane_not_found", "agent_not_found"}
 
 
 def socket_path_from_env() -> str:
-    """Resolve the daemon socket from plugin context or XDG config."""
+    """Find the daemon socket from plugin or XDG settings."""
     configured = os.environ.get("HERDR_SOCKET_PATH")
     return configured or _default_socket_path()
 
 
 def store_from_env() -> StateStore:
-    """Build state storage using the same socket namespace as the API."""
+    """Build state storage for the API socket."""
     state_root = os.environ.get("HERDR_PLUGIN_STATE_DIR")
     root = Path(state_root) if state_root else _default_state_root()
     return StateStore(root, socket_path_from_env())
 
 
 def api_from_env() -> HerdrApi:
-    """Build an API client from Herdr's injected runtime environment."""
+    """Build an API client from Herdr's runtime settings."""
     return HerdrApi(socket_path_from_env())
 
 
@@ -47,7 +47,7 @@ def _default_socket_path() -> str:
 
 
 def sync(api: AgentTreeApi, store: StateStore) -> int:
-    """Synchronize enabled metadata while holding the state lock."""
+    """Sync enabled metadata while holding the state lock."""
     with store.locked():
         return _sync_locked(api, store)
 
@@ -109,7 +109,7 @@ def _report_if_present(
 
 
 def enable(api: AgentTreeApi, store: StateStore) -> int:
-    """Enable the projection and roll back the marker if synchronization fails."""
+    """Enable the view and restore state if sync fails."""
     with store.locked():
         previous = store.load()
         store.save(LinkState(enabled=True, links=previous.links))
@@ -121,7 +121,7 @@ def enable(api: AgentTreeApi, store: StateStore) -> int:
 
 
 def disable(api: AgentTreeApi, store: StateStore) -> int:
-    """Disable first, then clear only metadata owned by this plugin."""
+    """Disable first, then clear this plugin's metadata."""
     with store.locked():
         previous = store.load()
         store.save(LinkState(enabled=False, links=previous.links))
@@ -145,7 +145,7 @@ def _agent_refs(agents: list[Agent]) -> dict[str, Agent]:
 
 
 def link(api: AgentTreeApi, store: StateStore, child_ref: str, parent_ref: str) -> None:
-    """Persist a parent relationship and synchronize enabled views."""
+    """Save a parent link and sync the view when enabled."""
     agents = parse_agents(api.agents())
     refs = _agent_refs(agents)
     child, parent = refs.get(child_ref), refs.get(parent_ref)
@@ -165,7 +165,7 @@ def link(api: AgentTreeApi, store: StateStore, child_ref: str, parent_ref: str) 
 
 
 def unlink(api: AgentTreeApi, store: StateStore, child_ref: str) -> None:
-    """Remove a parent relationship and synchronize enabled views."""
+    """Remove a parent link and sync the view when enabled."""
     agents = parse_agents(api.agents())
     child = _agent_refs(agents).get(child_ref)
     if child is None:
@@ -180,7 +180,7 @@ def unlink(api: AgentTreeApi, store: StateStore, child_ref: str) -> None:
 
 
 def list_links(api: AgentTreeApi, store: StateStore) -> None:
-    """Print all live agents and their stored parent references."""
+    """Print current agents and their parent links."""
     state = store.load()
     rows = build_rows(parse_agents(api.agents()), state.links)
     for row in rows:
@@ -191,7 +191,7 @@ def list_links(api: AgentTreeApi, store: StateStore) -> None:
 
 
 def parser() -> argparse.ArgumentParser:
-    """Build the plugin's command parser."""
+    """Build the plugin command parser."""
     command_parser = argparse.ArgumentParser(prog="agent-tree")
     commands = command_parser.add_subparsers(dest="command", required=True)
     for name in ("sync", "event", "enable", "disable", "list", "setup"):
@@ -205,7 +205,7 @@ def parser() -> argparse.ArgumentParser:
 
 
 def main(argv: list[str] | None = None) -> int:
-    """Run one plugin command and convert expected errors to CLI status 1."""
+    """Run one command and turn expected errors into status 1."""
     try:
         return _run(parser().parse_args(argv))
     except (ApiError, RuntimeError, ValueError) as exc:
@@ -227,7 +227,7 @@ def _run(arguments: argparse.Namespace) -> int:
 def _dispatch_tree_command(
     arguments: argparse.Namespace, api: AgentTreeApi, store: StateStore
 ) -> int:
-    """Dispatch commands after the setup and disabled-event guards."""
+    """Run commands that need the server after the first checks."""
     if arguments.command == "list":
         list_links(api, store)
     elif arguments.command == "sync":

@@ -168,7 +168,7 @@ class IsolatedDaemonTests(unittest.TestCase):
             tokens = object_field(agents[pane_id], "tokens")
             self.assertEqual(tokens["naeliofreires_tree_order"], f"{rank:08d}")
             self.assertEqual(tokens["naeliofreires_tree_path"], expected_paths[rank])
-            # Herdr trims trailing spaces from display-only metadata values.
+            # Herdr removes spaces at the end of display values.
             self.assertEqual(
                 tokens["naeliofreires_tree_prefix"], expected_prefixes[rank].rstrip()
             )

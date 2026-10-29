@@ -1,4 +1,4 @@
-"""Build deterministic workspace-grouped prefixes for agent rows."""
+"""Build stable tree prefixes for agent rows."""
 
 from __future__ import annotations
 
@@ -10,7 +10,7 @@ from .model import Agent, MAX_AGENTS, MAX_DEPTH
 
 @dataclass(frozen=True)
 class TreeRow:
-    """Metadata to report for one agent pane."""
+    """Tree metadata for one agent pane."""
 
     agent: Agent
     prefix: str
@@ -19,7 +19,7 @@ class TreeRow:
 
 
 def parse_agents(records: list[dict[str, object]]) -> list[Agent]:
-    """Validate and convert daemon records.
+    """Check and convert daemon records.
 
     Example: ``agents = parse_agents(api.agents())``.
     """
@@ -40,7 +40,7 @@ def parse_agents(records: list[dict[str, object]]) -> list[Agent]:
 def validate_link(
     child: Agent, parent: Agent, links: dict[str, str], agents: dict[str, Agent]
 ) -> None:
-    """Validate one proposed parent link; example: ``validate_link(...)``."""
+    """Check one parent link; example: ``validate_link(...)``."""
     if child.terminal_id == parent.terminal_id:
         raise ValueError(f"link {child.terminal_id!r} cannot point to itself")
     if child.workspace_id != parent.workspace_id:
@@ -65,7 +65,7 @@ def _validate_proposed_chain(
 
 
 def validate_graph(agents: list[Agent], links: dict[str, str]) -> None:
-    """Validate all known same-workspace links.
+    """Check all known links in each workspace.
 
     Example: ``validate_graph(agents, state.links)``.
     """
@@ -104,7 +104,7 @@ def _validate_chain(
 
 
 def build_rows(agents: list[Agent], links: dict[str, str]) -> list[TreeRow]:
-    """Build stable workspace-grouped tree rows.
+    """Build stable tree rows grouped by workspace.
 
     Example: ``rows = build_rows(agents, links)``.
     """
@@ -180,7 +180,7 @@ def _row_prefix(guides: tuple[bool, ...], last: bool) -> str:
 
 
 def _branch_path(guides: tuple[bool, ...], last: bool) -> str:
-    """Encode branch continuation bits; e.g. ``_branch_path((), True)``."""
+    """Encode branch bits; e.g. ``_branch_path((), True)``."""
     ancestor_bits = "".join("1" if more else "0" for more in guides)
     current_bit = "0" if last else "1"
     return f"v1:{ancestor_bits}{current_bit}"
