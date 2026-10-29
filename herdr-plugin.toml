@@ -1,0 +1,53 @@
+id = "naeliofreires.agent-tree"
+name = "Agent Tree"
+version = "0.1.0"
+min_herdr_version = "0.9.0"
+description = "Show explicit parent and child agents as a readable tree in Herdr's sidebar."
+platforms = ["macos", "linux"]
+
+[[startup]]
+command = ["python3", "-m", "agent_tree", "event"]
+
+[[actions]]
+id = "enable"
+title = "Enable agent tree"
+contexts = ["workspace"]
+command = ["python3", "-m", "agent_tree", "enable"]
+
+[[actions]]
+id = "sync"
+title = "Sync agent tree"
+contexts = ["workspace"]
+command = ["python3", "-m", "agent_tree", "sync"]
+
+[[actions]]
+id = "disable"
+title = "Disable agent tree"
+contexts = ["workspace"]
+command = ["python3", "-m", "agent_tree", "disable"]
+
+[[actions]]
+id = "list"
+title = "List agent tree links"
+contexts = ["workspace"]
+command = ["python3", "-m", "agent_tree", "list"]
+
+[[events]]
+on = "pane.agent_detected"
+command = ["python3", "-m", "agent_tree", "event"]
+
+[[events]]
+on = "pane.closed"
+command = ["python3", "-m", "agent_tree", "event"]
+
+[[events]]
+on = "pane.moved"
+command = ["python3", "-m", "agent_tree", "event"]
+
+[[events]]
+on = "tab.moved"
+command = ["python3", "-m", "agent_tree", "event"]
+
+[[events]]
+on = "workspace.reordered"
+command = ["python3", "-m", "agent_tree", "event"]
