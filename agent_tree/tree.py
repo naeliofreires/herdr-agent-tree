@@ -15,6 +15,7 @@ class TreeRow:
     agent: Agent
     prefix: str
     order: str
+    branch_path: str
 
 
 def parse_agents(records: list[dict[str, object]]) -> list[Agent]:
@@ -167,7 +168,14 @@ def _visit(
     guides: tuple[bool, ...],
     last: bool,
 ) -> int:
-    rows.append(TreeRow(agent, _row_prefix(guides, last), f"{rank:08d}"))
+    rows.append(
+        TreeRow(
+            agent,
+            _row_prefix(guides, last),
+            f"{rank:08d}",
+            _branch_path(guides, last),
+        )
+    )
     rank += 1
     descendants = children.get(agent.terminal_id, [])
     if len(guides) >= MAX_DEPTH - 1:
@@ -179,6 +187,13 @@ def _row_prefix(guides: tuple[bool, ...], last: bool) -> str:
     branch = "└─ " if last else "├─ "
     guides_text = "".join("│  " if more else "   " for more in guides)
     return "\u200b" + guides_text + branch
+
+
+def _branch_path(guides: tuple[bool, ...], last: bool) -> str:
+    """Encode branch continuation bits; e.g. ``_branch_path((), True)``."""
+    ancestor_bits = "".join("1" if more else "0" for more in guides)
+    current_bit = "0" if last else "1"
+    return f"v1:{ancestor_bits}{current_bit}"
 
 
 def _visit_descendants(

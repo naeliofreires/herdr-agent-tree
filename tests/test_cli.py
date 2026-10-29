@@ -98,6 +98,7 @@ class CliTests(unittest.TestCase):
         self.assertEqual(
             self.api.reports[1][1]["naeliofreires_tree_prefix"], "\u200b   └─ "
         )
+        self.assertEqual(self.api.reports[1][1]["naeliofreires_tree_path"], "v1:00")
         unlink(self.api, self.store, "child")
         self.assertEqual(self.store.load().links, {})
 
@@ -108,6 +109,12 @@ class CliTests(unittest.TestCase):
         self.assertTrue(
             all(
                 report[1]["naeliofreires_tree_prefix"] is None
+                for report in self.api.reports
+            )
+        )
+        self.assertTrue(
+            all(
+                report[1]["naeliofreires_tree_path"] is None
                 for report in self.api.reports
             )
         )
@@ -170,6 +177,9 @@ class CliTests(unittest.TestCase):
         self.assertEqual(disable(api, self.store), 3)
         self.assertEqual(
             [pane_id for pane_id, _ in api.reports], ["p1", "p2", "p-undetected"]
+        )
+        self.assertTrue(
+            all(tokens["naeliofreires_tree_path"] is None for _, tokens in api.reports)
         )
 
     def test_list_prints_live_agents_even_without_links(self) -> None:

@@ -66,7 +66,9 @@ def _sync_locked_with_cleanup(
     reported: list[str] = []
     try:
         for row in rows:
-            _report_if_present(api, row.agent.pane_id, row.prefix, row.order)
+            _report_if_present(
+                api, row.agent.pane_id, row.prefix, row.order, row.branch_path
+            )
             reported.append(row.agent.pane_id)
         api.set_view()
         return len(rows)
@@ -89,12 +91,16 @@ def _cleanup_partial(api: AgentTreeApi, pane_ids: list[str]) -> None:
 
 
 def _report_if_present(
-    api: AgentTreeApi, pane_id: str, prefix: str, order: str
+    api: AgentTreeApi, pane_id: str, prefix: str, order: str, branch_path: str
 ) -> None:
     try:
         api.report(
             pane_id,
-            {"naeliofreires_tree_prefix": prefix, "naeliofreires_tree_order": order},
+            {
+                "naeliofreires_tree_prefix": prefix,
+                "naeliofreires_tree_order": order,
+                "naeliofreires_tree_path": branch_path,
+            },
         )
     except ApiError as exc:
         if exc.code not in NOT_FOUND_CODES:
@@ -131,7 +137,11 @@ def _clear_if_present(api: AgentTreeApi, pane_id: str) -> None:
     try:
         api.report(
             pane_id,
-            {"naeliofreires_tree_prefix": None, "naeliofreires_tree_order": None},
+            {
+                "naeliofreires_tree_prefix": None,
+                "naeliofreires_tree_order": None,
+                "naeliofreires_tree_path": None,
+            },
         )
     except ApiError as exc:
         if exc.code not in NOT_FOUND_CODES:

@@ -24,9 +24,18 @@ class TreeTests(unittest.TestCase):
         self.assertEqual(rows[1].prefix, "\u200b│  └─ ")
         self.assertEqual(rows[2].prefix, "\u200b│     └─ ")
         self.assertEqual(
+            [row.branch_path for row in rows],
+            ["v1:1", "v1:10", "v1:100", "v1:0"],
+        )
+        self.assertEqual(
             [row.order for row in rows],
             ["00000000", "00000001", "00000002", "00000003"],
         )
+
+    def test_branch_path_marks_sibling_continuation(self) -> None:
+        records = [agent("root", "p1"), agent("first", "p2"), agent("last", "p3")]
+        rows = build_rows(records, {"first": "root", "last": "root"})
+        self.assertEqual([row.branch_path for row in rows], ["v1:0", "v1:01", "v1:00"])
 
     def test_cross_workspace_and_orphan_are_roots(self) -> None:
         records = [agent("root", "p1"), agent("other", "p2", "w2")]
@@ -69,6 +78,10 @@ class TreeTests(unittest.TestCase):
         valid_links = {str(index): str(index - 1) for index in range(1, 16)}
         self.assertEqual(
             len(build_rows(valid_records, valid_links)), len(valid_records)
+        )
+        self.assertEqual(
+            build_rows(valid_records, valid_links)[-1].branch_path,
+            "v1:" + "0" * 16,
         )
         records = [agent(str(index), f"p{index}") for index in range(17)]
         links = {str(index): str(index - 1) for index in range(1, 17)}

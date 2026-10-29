@@ -129,7 +129,14 @@ class IsolatedDaemonTests(unittest.TestCase):
         self.assertEqual(linked.returncode, 0, linked.stderr.decode("utf-8"))
 
     def seed_other_metadata(self, pane_id: str) -> None:
-        self.api.report(pane_id, {"naeliofreires_tree_prefix": None})
+        self.api.report(
+            pane_id,
+            {
+                "naeliofreires_tree_prefix": None,
+                "naeliofreires_tree_order": None,
+                "naeliofreires_tree_path": None,
+            },
+        )
         self.api.request(
             "pane.report_metadata",
             {
@@ -156,9 +163,11 @@ class IsolatedDaemonTests(unittest.TestCase):
     def assert_tree(self, pane_ids: list[str]) -> None:
         agents = {str(record["pane_id"]): record for record in self.api.agents()}
         expected_prefixes = ["\u200b└─ ", "\u200b   └─ ", "\u200b      └─ "]
+        expected_paths = ["v1:0", "v1:00", "v1:000"]
         for rank, pane_id in enumerate(pane_ids):
             tokens = object_field(agents[pane_id], "tokens")
             self.assertEqual(tokens["naeliofreires_tree_order"], f"{rank:08d}")
+            self.assertEqual(tokens["naeliofreires_tree_path"], expected_paths[rank])
             # Herdr trims trailing spaces from display-only metadata values.
             self.assertEqual(
                 tokens["naeliofreires_tree_prefix"], expected_prefixes[rank].rstrip()
@@ -169,6 +178,7 @@ class IsolatedDaemonTests(unittest.TestCase):
             tokens = cast(dict[str, object], record.get("tokens", {}))
             self.assertNotIn("naeliofreires_tree_prefix", tokens)
             self.assertNotIn("naeliofreires_tree_order", tokens)
+            self.assertNotIn("naeliofreires_tree_path", tokens)
         root = next(
             record for record in self.api.agents() if record["pane_id"] == pane_ids[0]
         )

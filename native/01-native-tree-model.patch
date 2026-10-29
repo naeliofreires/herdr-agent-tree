@@ -1,0 +1,361 @@
+diff --git a/crates/herdr-gpui/src/sidebar.rs b/crates/herdr-gpui/src/sidebar.rs
+index 22b7842..ccfd14c 100644
+--- a/crates/herdr-gpui/src/sidebar.rs
++++ b/crates/herdr-gpui/src/sidebar.rs
+@@ -12,6 +12,7 @@ mod hover;
+ mod layout;
+ mod layouts;
+ mod metrics;
++mod native_tree;
+ mod note_line;
+ mod order;
+ mod rail;
+diff --git a/crates/herdr-gpui/src/sidebar/native_tree.rs b/crates/herdr-gpui/src/sidebar/native_tree.rs
+new file mode 100644
+index 0000000..90e7d7a
+--- /dev/null
++++ b/crates/herdr-gpui/src/sidebar/native_tree.rs
+@@ -0,0 +1,241 @@
++//! Native tree affordances for the opt-in Agent Tree plugin view.
++
++use super::tokens::{ResolvedToken, TokenKind};
++use crate::config::{AgentsPlacement, FontConfig, Theme};
++use gpui::{prelude::*, *};
++use herdr_client::protocol::{ClientShellAgent, ClientShellSnapshot};
++
++const PREFIX_TOKEN: &str = "naeliofreires_tree_prefix";
++mod path;
++use path::GUIDE_OFFSET;
++pub(crate) use path::{TreePath, guide_levels, guide_origin, parse_path, row_indent};
++
++pub(super) fn agent_path(agent: &ClientShellAgent) -> Option<TreePath> {
++    let value = agent
++        .tokens
++        .iter()
++        .find(|(name, _)| name == path::PATH_TOKEN)
++        .map(|(_, value)| value.as_str());
++    parse_path(value)
++}
++
++pub(super) fn workspace_has_tree(snapshot: &ClientShellSnapshot, workspace_id: &str) -> bool {
++    snapshot
++        .agents
++        .iter()
++        .any(|agent| agent.workspace_id == workspace_id && agent_path(agent).is_some())
++}
++
++pub(super) fn enabled(placement: AgentsPlacement, snapshot: &ClientShellSnapshot) -> bool {
++    placement == AgentsPlacement::Nested
++        && snapshot.agent_view_label.as_deref() == Some("Agent Tree")
++}
++
++pub(super) fn workspace_enabled(
++    nested: bool,
++    snapshot: &ClientShellSnapshot,
++    workspace_id: &str,
++) -> bool {
++    nested
++        && enabled(AgentsPlacement::Nested, snapshot)
++        && workspace_has_tree(snapshot, workspace_id)
++}
++
++pub(super) fn hide_prefix(
++    lines: Vec<Vec<ResolvedToken>>,
++    agent: &ClientShellAgent,
++) -> Vec<Vec<ResolvedToken>> {
++    let Some(prefix) = prefix_value(agent) else {
++        return lines;
++    };
++    lines
++        .into_iter()
++        .map(|row| without_prefix(row, prefix))
++        .filter(|row: &Vec<_>| !row.is_empty())
++        .collect()
++}
++
++fn prefix_value(agent: &ClientShellAgent) -> Option<&str> {
++    agent
++        .tokens
++        .iter()
++        .find(|(name, _)| name == PREFIX_TOKEN)
++        .map(|(_, value)| value.as_str())
++}
++
++fn without_prefix(row: Vec<ResolvedToken>, prefix: &str) -> Vec<ResolvedToken> {
++    row.into_iter()
++        .filter(|token| !matches!(&token.kind, TokenKind::Text(text, _) if text.as_ref() == prefix))
++        .collect()
++}
++
++/// Paint the branch path over a row; e.g. `guides(path, theme.muted)`.
++pub(super) fn guides(path: TreePath, color: u32) -> Div {
++    let painter = canvas(
++        |_, _, _| (),
++        move |bounds, _, window, _| paint_guides(path, color, bounds, window),
++    )
++    .size_full();
++    div()
++        .debug_selector(|| "native-tree-guides".into())
++        .absolute()
++        .inset_0()
++        .child(painter)
++}
++
++/// Prepare workspace typography; e.g. `workspace_font(true, &config.sidebar)`.
++pub(super) fn workspace_font(enhanced: bool, sidebar_font: &FontConfig) -> FontConfig {
++    let mut font = sidebar_font.clone();
++    if enhanced {
++        font.size = 14.;
++    }
++    font
++}
++
++/// Resolve workspace enhancement and font together; e.g. `workspace_context(...)`.
++pub(super) fn workspace_context(
++    nested: bool,
++    snapshot: &ClientShellSnapshot,
++    workspace_id: &str,
++    sidebar_font: &FontConfig,
++) -> (bool, FontConfig) {
++    let enhanced = workspace_enabled(nested, snapshot, workspace_id);
++    (enhanced, workspace_font(enhanced, sidebar_font))
++}
++
++/// Apply the native workspace header treatment when enabled.
++pub(super) fn style_workspace(row: Stateful<Div>, enhanced: bool, theme: &Theme) -> Stateful<Div> {
++    if enhanced {
++        workspace_header(row, theme)
++    } else {
++        row
++    }
++}
++
++pub(super) fn workspace_header(row: Stateful<Div>, theme: &Theme) -> Stateful<Div> {
++    row.debug_selector(|| "native-tree-workspace-header".into())
++        .text_size(px(14.))
++        .font_weight(FontWeight::BOLD)
++        .border_b_1()
++        .border_color(rgba((theme.foreground << 8) | 0x30))
++        .bg(rgba((theme.surface << 8) | 0x28))
++}
++
++pub(super) fn workspace_card(unit: Div, theme: &Theme) -> Div {
++    unit.debug_selector(|| "native-tree-workspace-card".into())
++        .rounded(px(8.))
++        .mb(px(12.))
++        .border_1()
++        .border_color(rgba((theme.foreground << 8) | 0x20))
++        .bg(rgba((theme.surface << 8) | 0x18))
++}
++
++pub(super) fn selected_agent(row: Stateful<Div>, theme: &Theme) -> Stateful<Div> {
++    let indicator = div()
++        .debug_selector(|| "native-tree-selected-indicator".into())
++        .absolute()
++        .left_0()
++        .top_0()
++        .bottom_0()
++        .w(px(2.))
++        .bg(rgb(theme.primary()));
++    row.debug_selector(|| "native-tree-selected-agent".into())
++        .relative()
++        .child(indicator)
++}
++
++#[derive(Clone, Copy)]
++struct GuideGeometry {
++    level: usize,
++    continues: bool,
++    depth: usize,
++    middle: Pixels,
++    weight: Pixels,
++    color: u32,
++}
++
++impl GuideGeometry {
++    fn base(path: TreePath, color: u32, bounds: Bounds<Pixels>, window: &Window) -> Self {
++        let scale = window.scale_factor();
++        Self {
++            level: 0,
++            continues: false,
++            depth: path.depth(),
++            middle: bounds.center().y,
++            weight: px((scale.round().max(1.)) / scale),
++            color,
++        }
++    }
++
++    fn at_level(self, level: usize, continues: bool) -> Self {
++        Self {
++            level,
++            continues,
++            ..self
++        }
++    }
++}
++
++fn paint_guides(path: TreePath, color: u32, bounds: Bounds<Pixels>, window: &mut Window) {
++    let geometry = GuideGeometry::base(path, color, bounds, window);
++    for (level, continues) in guide_levels(path) {
++        paint_level(window, bounds, geometry.at_level(level, continues));
++    }
++}
++
++fn paint_level(window: &mut Window, bounds: Bounds<Pixels>, geometry: GuideGeometry) {
++    if geometry.level < geometry.depth && !geometry.continues {
++        return;
++    }
++    let end = if geometry.level == geometry.depth && !geometry.continues {
++        geometry.middle
++    } else {
++        bounds.bottom()
++    };
++    let x = paint_vertical_segment(window, bounds, end, geometry);
++    if geometry.level == geometry.depth {
++        paint_horizontal(window, x, geometry.middle, geometry.weight, geometry.color);
++    }
++}
++
++fn paint_vertical_segment(
++    window: &mut Window,
++    bounds: Bounds<Pixels>,
++    end: Pixels,
++    geometry: GuideGeometry,
++) -> Pixels {
++    let x = bounds.origin.x + px(guide_origin(geometry.level));
++    paint_vertical(
++        window,
++        x,
++        bounds.origin.y,
++        end,
++        geometry.weight,
++        geometry.color,
++    );
++    x
++}
++
++fn paint_vertical(
++    window: &mut Window,
++    x: Pixels,
++    top: Pixels,
++    bottom: Pixels,
++    weight: Pixels,
++    color: u32,
++) {
++    window.paint_quad(fill(
++        Bounds::from_corners(point(x, top), point(x + weight, bottom)),
++        rgb(color),
++    ));
++}
++
++fn paint_horizontal(window: &mut Window, x: Pixels, middle: Pixels, weight: Pixels, color: u32) {
++    window.paint_quad(fill(
++        Bounds::from_corners(
++            point(x, middle),
++            point(x + px(GUIDE_OFFSET), middle + weight),
++        ),
++        rgb(color),
++    ));
++}
+diff --git a/crates/herdr-gpui/src/sidebar/native_tree/path.rs b/crates/herdr-gpui/src/sidebar/native_tree/path.rs
+new file mode 100644
+index 0000000..9e5d083
+--- /dev/null
++++ b/crates/herdr-gpui/src/sidebar/native_tree/path.rs
+@@ -0,0 +1,61 @@
++pub const PATH_TOKEN: &str = "naeliofreires_tree_path";
++const PATH_PREFIX: &str = "v1:";
++const TREE_INDENT: f32 = 20.;
++pub(crate) const GUIDE_OFFSET: f32 = 12.;
++
++#[derive(Clone, Copy, Debug, PartialEq, Eq)]
++pub struct TreePath {
++    bits: [bool; 16],
++    length: u8,
++}
++
++impl TreePath {
++    /// Return the number of ancestor levels; e.g. `TreePath::depth()` for `v1:010` is `2`.
++    pub fn depth(self) -> usize {
++        usize::from(self.length.saturating_sub(1))
++    }
++
++    /// Return whether a guide continues at `level`; e.g. `v1:10` continues at level `0`.
++    pub fn continues_at(self, level: usize) -> bool {
++        level < usize::from(self.length) && self.bits[level]
++    }
++}
++
++/// Parse a bounded native tree path; e.g. `parse_path(Some("v1:01"))`.
++pub fn parse_path(value: Option<&str>) -> Option<TreePath> {
++    let digits = value?.strip_prefix(PATH_PREFIX)?;
++    let bounded = (1..=16).contains(&digits.len());
++    let binary = digits.bytes().all(|byte| byte == b'0' || byte == b'1');
++    if !bounded || !binary {
++        return None;
++    }
++    let mut bits = [false; 16];
++    for (index, byte) in digits.bytes().enumerate() {
++        bits[index] = byte == b'1';
++    }
++    Some(TreePath {
++        bits,
++        length: digits.len() as u8,
++    })
++}
++
++/// Return the x-offset for a guide level; e.g. `guide_origin(2)`.
++pub fn guide_origin(depth: usize) -> f32 {
++    GUIDE_OFFSET + depth as f32 * TREE_INDENT
++}
++
++/// Return row indentation for a path depth; e.g. `row_indent(2)`.
++pub fn row_indent(depth: usize) -> f32 {
++    depth as f32 * TREE_INDENT
++}
++
++/// Expand a path into paint levels; e.g. `guide_levels(parse_path(Some("v1:0")).unwrap())`.
++pub fn guide_levels(path: TreePath) -> Vec<(usize, bool)> {
++    (0..=path.depth())
++        .map(|level| (level, path.continues_at(level)))
++        .collect()
++}
++
++#[cfg(test)]
++#[path = "path/tests.rs"]
++mod tests;
+diff --git a/crates/herdr-gpui/src/sidebar/native_tree/path/tests.rs b/crates/herdr-gpui/src/sidebar/native_tree/path/tests.rs
+new file mode 100644
+index 0000000..72571c0
+--- /dev/null
++++ b/crates/herdr-gpui/src/sidebar/native_tree/path/tests.rs
+@@ -0,0 +1,29 @@
++use super::{guide_levels, guide_origin, parse_path, row_indent};
++
++#[test]
++fn parses_valid_paths_and_rejects_invalid_values() {
++    assert_eq!(parse_path(Some("v1:0")).map(|path| path.depth()), Some(0));
++    assert_eq!(parse_path(Some("v1:01")).map(|path| path.depth()), Some(1));
++    assert!(parse_path(None).is_none());
++    assert!(parse_path(Some("v1:")).is_none());
++    assert!(parse_path(Some("v1:012")).is_none());
++    assert!(parse_path(Some("v2:01")).is_none());
++    assert!(parse_path(Some("v1:00000000000000000")).is_none());
++}
++
++#[test]
++fn preserves_sibling_continuation_bits() {
++    let path = parse_path(Some("v1:1010")).expect("valid test path");
++    assert_eq!(
++        guide_levels(path),
++        [(0, true), (1, false), (2, true), (3, false)]
++    );
++}
++
++#[test]
++fn computes_native_geometry_offsets() {
++    assert_eq!(guide_origin(0), 12.);
++    assert_eq!(guide_origin(1), 32.);
++    assert_eq!(guide_origin(3), 72.);
++    assert_eq!(row_indent(3), 60.);
++}

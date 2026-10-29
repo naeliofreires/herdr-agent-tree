@@ -49,11 +49,20 @@ class ApiTests(unittest.TestCase):
             {
                 "naeliofreires_tree_prefix": "\u200b",
                 "naeliofreires_tree_order": "00000000",
+                "naeliofreires_tree_path": "v1:0",
             },
         )
         api.set_view()
         api.clear_view()
         self._assert_methods(transport)
+        self.assertEqual(
+            transport.calls[1]["params"]["tokens"],
+            {
+                "naeliofreires_tree_prefix": "\u200b",
+                "naeliofreires_tree_order": "00000000",
+                "naeliofreires_tree_path": "v1:0",
+            },
+        )
 
     def _assert_methods(self, transport: FakeTransport) -> None:
         methods = [call["method"] for call in transport.calls]

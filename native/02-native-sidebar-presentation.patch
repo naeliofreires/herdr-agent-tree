@@ -1,0 +1,446 @@
+diff --git a/crates/herdr-gpui/src/sidebar/cell.rs b/crates/herdr-gpui/src/sidebar/cell.rs
+index 154b74e..fbaa7ee 100644
+--- a/crates/herdr-gpui/src/sidebar/cell.rs
++++ b/crates/herdr-gpui/src/sidebar/cell.rs
+@@ -23,6 +23,17 @@ use gpui::{App, ClickEvent, Div, ElementId, ParentElement, Styled, Window};
+ use herdr_client::protocol::{AgentStatus, ClientShellWorkspace};
+ use std::borrow::Cow;
+ 
++pub(super) fn selected_fill(state: RowState, theme: &Theme, fallback: gpui::Rgba) -> gpui::Rgba {
++    if !state.accent_selected {
++        return fallback;
++    }
++    gpui::rgb(crate::config::mix(
++        theme.sidebar_background(),
++        theme.primary(),
++        38,
++    ))
++}
++
+ /// Read-only inputs every row of one render shares.
+ pub(super) struct RowContext<'a> {
+     pub(super) indicators: super::agents::Indicators,
+@@ -136,6 +147,9 @@ pub(super) enum RowData<'a> {
+ pub(super) struct RowState {
+     /// The focused workspace or agent.
+     pub(super) selected: bool,
++    pub(super) accent_selected: bool,
++    /// Keeps a native Agent Tree workspace title bold without marking it selected.
++    pub(super) bold_workspace: bool,
+     /// Marked as if hovered while the pointer is elsewhere, such as the row a
+     /// menu was opened for.
+     pub(super) highlighted: bool,
+@@ -188,6 +202,16 @@ impl<'a> Cell<'a> {
+         self
+     }
+ 
++    pub(super) fn bold_workspace(mut self, bold: bool) -> Self {
++        self.state.bold_workspace = bold;
++        self
++    }
++
++    pub(super) fn accent_selected(mut self, accent: bool) -> Self {
++        self.state.accent_selected = accent;
++        self
++    }
++
+     pub(super) fn highlighted(mut self, highlighted: bool) -> Self {
+         self.state.highlighted = highlighted;
+         self
+diff --git a/crates/herdr-gpui/src/sidebar/layout.rs b/crates/herdr-gpui/src/sidebar/layout.rs
+index 7a7eda5..f91f8fd 100644
+--- a/crates/herdr-gpui/src/sidebar/layout.rs
++++ b/crates/herdr-gpui/src/sidebar/layout.rs
+@@ -3,7 +3,9 @@
+ //! variant without a type per combination.
+ 
+ use super::{
+-    CHILD_INDENT, HOST_GAP, LABEL_GAP, ROW_PADDING, STATUS_WIDTH, cell::RowState, row::RowLift,
++    CHILD_INDENT, HOST_GAP, LABEL_GAP, ROW_PADDING, STATUS_WIDTH,
++    cell::{RowState, selected_fill},
++    row::RowLift,
+     wash::HostMark,
+ };
+ use crate::{
+@@ -381,18 +383,19 @@ impl SidebarLook {
+             .rounded(px(raised.radius));
+         match self.density.highlight {
+             Highlight::Fill => {
+-                let active = raised.fill;
++                let active = selected_fill(state, theme, raised.fill);
+                 layer
+                     .when(focused || highlighted, |layer| layer.bg(active))
+                     .group_hover(ROW_GROUP, move |s| s.bg(active))
+             }
+             Highlight::Outline => {
++                let active = selected_fill(state, theme, raised.fill);
+                 let hover = quiet.fill;
+                 layer
+                     .border_1()
+                     .border_color(rgba(0))
+                     .when(focused, |layer| {
+-                        layer.bg(raised.fill).border_color(raised.border)
++                        layer.bg(active).border_color(raised.border)
+                     })
+                     .when(!focused && highlighted, |layer| layer.bg(hover))
+                     .when(!focused, |layer| {
+diff --git a/crates/herdr-gpui/src/sidebar/layout_tests.rs b/crates/herdr-gpui/src/sidebar/layout_tests.rs
+index e871dd0..29d8ddd 100644
+--- a/crates/herdr-gpui/src/sidebar/layout_tests.rs
++++ b/crates/herdr-gpui/src/sidebar/layout_tests.rs
+@@ -59,6 +59,8 @@ mod listening_ports;
+ #[cfg(test)]
+ mod local_counts_chip;
+ #[cfg(test)]
++mod native_tree;
++#[cfg(test)]
+ mod nested_agents;
+ #[cfg(test)]
+ mod other_device_prs;
+diff --git a/crates/herdr-gpui/src/sidebar/layout_tests/native_tree.rs b/crates/herdr-gpui/src/sidebar/layout_tests/native_tree.rs
+new file mode 100644
+index 0000000..3cb0d3f
+--- /dev/null
++++ b/crates/herdr-gpui/src/sidebar/layout_tests/native_tree.rs
+@@ -0,0 +1,79 @@
++use super::*;
++use crate::sidebar::native_tree::workspace_has_tree;
++use crate::{config::AgentsPlacement, state::ConnectionStatus};
++use std::sync::Arc;
++
++#[test]
++fn malformed_or_absent_paths_do_not_enable_workspace() {
++    let mut snapshot = snapshot(1);
++    snapshot.agent_view_label = Some("Agent Tree".into());
++    snapshot.agents[0].tokens = vec![("naeliofreires_tree_path".into(), "v1:012".into())];
++    assert!(!workspace_has_tree(&snapshot, "w0"));
++    snapshot.agents[0].tokens.clear();
++    assert!(!workspace_has_tree(&snapshot, "w0"));
++}
++
++#[gpui::test]
++fn native_tree_marks_card_header_and_nested_selection(cx: &mut gpui::TestAppContext) {
++    let (fixture, cx) = cx.add_window_view(|window, cx| {
++        let view = cx.new(|cx| tree_fixture(window, cx));
++        cx.observe(&view, |_, _, cx| cx.notify()).detach();
++        SidebarFixture(view)
++    });
++    let view = cx.update(|_, cx| fixture.read(cx).0.clone());
++    cx.simulate_resize(size(px(800.), px(800.)));
++    cx.update(|window, cx| full_draw(window, cx).clear(cx));
++    assert!(cx.debug_bounds("native-tree-workspace-card").is_some());
++    assert!(cx.debug_bounds("native-tree-workspace-header").is_some());
++    assert!(cx.debug_bounds("native-tree-selected-agent").is_some());
++    let first = cx
++        .debug_bounds("column-agent-p0")
++        .expect("first agent column");
++    let second = cx
++        .debug_bounds("column-agent-p1")
++        .expect("nested agent column");
++    let third = cx
++        .debug_bounds("column-agent-p2")
++        .expect("grandchild column");
++    assert!(second.left() > first.left(), "{first:?} before {second:?}");
++    assert!(third.left() > second.left(), "{second:?} before {third:?}");
++    let first_left = first.left();
++    cx.update(|window, cx| {
++        view.update(cx, |view, cx| {
++            let snapshot = Arc::make_mut(view.live.snapshot.as_mut().expect("tree snapshot"));
++            snapshot.agents[0].focused = true;
++            snapshot.agents[2].focused = false;
++            cx.notify();
++        });
++        full_draw(window, cx).clear(cx);
++    });
++    let selected_first = cx
++        .debug_bounds("column-agent-p0")
++        .expect("selected first column");
++    assert_eq!(selected_first.left(), first_left);
++}
++
++fn tree_fixture(window: &mut Window, cx: &mut Context<HerdrWindow>) -> HerdrWindow {
++    let mut view = fixture_window(window, cx);
++    view.config.agents_placement = AgentsPlacement::Nested;
++    let mut listing = Arc::new(snapshot(3));
++    let snapshot = Arc::make_mut(&mut listing);
++    snapshot.agent_view_label = Some("Agent Tree".into());
++    snapshot.agent_order = vec!["p0".into(), "p1".into(), "p2".into()];
++    let mut grandchild = snapshot.agents[1].clone();
++    grandchild.pane_id = "p2".into();
++    grandchild.name = Some("Nested grandchild".into());
++    snapshot.agents.push(grandchild);
++    for (index, agent) in snapshot.agents.iter_mut().enumerate() {
++        agent.workspace_id = "w0".into();
++        agent.tab_id = "t0".into();
++        agent.tokens = vec![(
++            "naeliofreires_tree_path".into(),
++            ["v1:0", "v1:00", "v1:000"][index].into(),
++        )];
++        agent.focused = index == 2;
++    }
++    view.live.snapshot = Some(listing);
++    view.live.status = ConnectionStatus::Connected;
++    view
++}
+diff --git a/crates/herdr-gpui/src/sidebar/layouts/parts.rs b/crates/herdr-gpui/src/sidebar/layouts/parts.rs
+index 9150b46..cd7eb45 100644
+--- a/crates/herdr-gpui/src/sidebar/layouts/parts.rs
++++ b/crates/herdr-gpui/src/sidebar/layouts/parts.rs
+@@ -8,7 +8,7 @@
+ //! with an explicit width, so nothing can push past the row's edge.
+ 
+ use super::super::{
+-    cell::{RowContext, RowState},
++    cell::{RowContext, RowState, selected_fill},
+     glyph_width, label_text, line_height,
+     row::{self, Counts, PrBadge, RowIcon, RowLift, removing_dot},
+     status_indicator,
+@@ -277,7 +277,8 @@ pub(super) fn wash(color: u32, alpha: u8) -> Rgba {
+ /// shadow, so the rows it floats over stay hidden in every theme; the rows it
+ /// passes stop answering hover, leaving the gap to mark where it lands.
+ pub(super) fn mark(row: Div, state: RowState, colors: (Rgba, Rgba), theme: &Theme) -> Div {
+-    let (fill, hover) = colors;
++    let (default_fill, hover) = colors;
++    let fill = selected_fill(state, theme, default_fill);
+     let selected = state.selected;
+     match state.lift {
+         // Only a border the layout already draws is colored: adding one
+diff --git a/crates/herdr-gpui/src/sidebar/render.rs b/crates/herdr-gpui/src/sidebar/render.rs
+index 67d7ff7..a9dfdf1 100644
+--- a/crates/herdr-gpui/src/sidebar/render.rs
++++ b/crates/herdr-gpui/src/sidebar/render.rs
+@@ -9,7 +9,7 @@ use super::{
+     cell::{Cell, Fold, RowContext, RowData, WorkspaceRow, layout_for},
+     label_text,
+     layout::{self, SidebarLook},
+-    line_height,
++    line_height, native_tree,
+     reorder::{self, Plan},
+     row::{RowIcon, RowLift, RowTree},
+     sidebar_width, sticky,
+@@ -386,7 +386,13 @@ impl HerdrWindow {
+                                 cx,
+                             ))
+                     });
+-                let element = Cell::new(
++                let (enhanced_workspace, workspace_font) =
++                    native_tree::workspace_context(nested_agents, snapshot, id.as_str(), font);
++                let workspace_cx = RowContext {
++                    font: &workspace_font,
++                    ..row_cx
++                };
++                let mut element = Cell::new(
+                     rows,
+                     RowData::Workspace(WorkspaceRow {
+                         workspace,
+@@ -401,7 +407,6 @@ impl HerdrWindow {
+                         } else if indented || !self.config.show_repository_icons {
+                             RowIcon::None
+                         } else if workspace.branch.is_none() {
+-                            // Not a Git checkout, so no mark that reads as one.
+                             RowIcon::Blank
+                         } else {
+                             let target = &endpoint.connection.target;
+@@ -428,9 +433,10 @@ impl HerdrWindow {
+                         status: shown_status,
+                         lines,
+                     }),
+-                    &row_cx,
++                    &workspace_cx,
+                 )
+-                .selected(selected && workspace.focused)
++                .bold_workspace(enhanced_workspace)
++                .selected(!enhanced_workspace && selected && workspace.focused)
+                 .highlighted(selected && menu_target == Some(id.as_str()))
+                 .lift(match (carried, floating) {
+                     (true, _) => RowLift::Lifted,
+@@ -548,6 +554,7 @@ impl HerdrWindow {
+                     )
+                 })
+                 .when(carried, |row| row.cursor_grabbing());
++                element = native_tree::style_workspace(element, enhanced_workspace, theme);
+                 let indent = layout.child_indent() * if indented { 2. } else { 1. };
+                 let agent_rows = if nested_agents {
+                     let (rows, focused) = self.nested_agent_rows(
+@@ -562,9 +569,7 @@ impl HerdrWindow {
+                 } else {
+                     Vec::new()
+                 };
+-                // The note, ports and nested agents ride under their row as one
+-                // list item, so the drop preview still measures one height per
+-                // workspace.
++                // Note, ports and nested agents ride under the workspace row.
+                 let element = if note_line.is_none() && ports.is_none() && agent_rows.is_empty() {
+                     element
+                         .when(gap > 0., |row| row.mt(px(gap)))
+@@ -577,6 +582,9 @@ impl HerdrWindow {
+                         .flex_none()
+                         .w_full()
+                         .relative()
++                        .when(enhanced_workspace, |unit| {
++                            native_tree::workspace_card(unit, theme)
++                        })
+                         .when(gap > 0., |unit| unit.mt(px(gap)))
+                         .when(shift != px(0.), |unit| unit.top(shift))
+                         .child(element)
+@@ -589,9 +597,6 @@ impl HerdrWindow {
+                                 .children(note_line)
+                                 .children(ports)
+                                 .children(agent_rows)
+-                                // Last, so a selected nested agent's fill does
+-                                // not hide it, as a row draws its guide over
+-                                // its own fill.
+                                 .children(trunk),
+                         )
+                         .into_any_element()
+diff --git a/crates/herdr-gpui/src/sidebar/render/agent_rows.rs b/crates/herdr-gpui/src/sidebar/render/agent_rows.rs
+index 936c73e..8c10440 100644
+--- a/crates/herdr-gpui/src/sidebar/render/agent_rows.rs
++++ b/crates/herdr-gpui/src/sidebar/render/agent_rows.rs
+@@ -67,8 +67,9 @@ impl HerdrWindow {
+             }
+             let gap = self.agent_row_gap(count);
+             count += 1;
+-            list =
+-                list.child(self.agent_cell(index, agent, snapshot, &row_cx, lines, gap, false, cx));
++            list = list.child(self.agent_cell(
++                index, agent, snapshot, &row_cx, lines, gap, false, false, cx,
++            ));
+         }
+         (list, count, focused)
+     }
+@@ -117,6 +118,7 @@ impl HerdrWindow {
+         lines: Vec<Vec<tokens::ResolvedToken>>,
+         gap: f32,
+         nested: bool,
++        accent_selected: bool,
+         cx: &mut Context<Self>,
+     ) -> Stateful<Div> {
+         let rows = layout_for(self.config.layout.mode);
+@@ -162,6 +164,7 @@ impl HerdrWindow {
+             }),
+             row_cx,
+         )
++        .accent_selected(accent_selected && selected && agent.focused)
+         .selected(selected && agent.focused)
+         .highlighted(menu_open)
+         .row()
+diff --git a/crates/herdr-gpui/src/sidebar/render/device_tree.rs b/crates/herdr-gpui/src/sidebar/render/device_tree.rs
+index d649b23..d5b50e8 100644
+--- a/crates/herdr-gpui/src/sidebar/render/device_tree.rs
++++ b/crates/herdr-gpui/src/sidebar/render/device_tree.rs
+@@ -93,8 +93,9 @@ impl HerdrWindow {
+                 focused = Some(count);
+             }
+             let gap = self.agent_row_gap(count);
+-            list =
+-                list.child(self.agent_cell(index, agent, snapshot, &row_cx, lines, gap, false, cx));
++            list = list.child(self.agent_cell(
++                index, agent, snapshot, &row_cx, lines, gap, false, false, cx,
++            ));
+             count += 1;
+         }
+         if count == 0 {
+diff --git a/crates/herdr-gpui/src/sidebar/render/nested_agents.rs b/crates/herdr-gpui/src/sidebar/render/nested_agents.rs
+index ea403de..5fc4a68 100644
+--- a/crates/herdr-gpui/src/sidebar/render/nested_agents.rs
++++ b/crates/herdr-gpui/src/sidebar/render/nested_agents.rs
+@@ -5,7 +5,7 @@
+ 
+ use crate::{
+     HerdrWindow,
+-    sidebar::{agents::sorted_agents, cell::RowContext},
++    sidebar::{agents::sorted_agents, cell::RowContext, native_tree},
+ };
+ use gpui::{prelude::*, *};
+ use herdr_client::protocol::ClientShellSnapshot;
+@@ -69,6 +69,7 @@ impl HerdrWindow {
+             ..*row_cx
+         };
+         let selected = index == self.selected_endpoint;
++        let enhanced = native_tree::enabled(self.config.agents_placement, snapshot);
+         let mut focused = None;
+         let mut rows = Vec::new();
+         for agent in sorted_agents(snapshot, self.agent_sort)
+@@ -78,8 +79,41 @@ impl HerdrWindow {
+             let Some(lines) = self.configured_agent_lines(agent, snapshot, None) else {
+                 continue;
+             };
+-            let gap = self.agent_row_gap(rows.len());
+-            let row = self.agent_cell(index, agent, snapshot, &row_cx, lines, gap, true, cx);
++            let path = enhanced.then(|| native_tree::agent_path(agent)).flatten();
++            let lines = if path.is_some() {
++                native_tree::hide_prefix(lines, agent)
++            } else {
++                lines
++            };
++            let gap = path.map_or_else(|| self.agent_row_gap(rows.len()), |_| 0.);
++            let agent_cx = path.map(|path| RowContext {
++                nest: row_cx.nest + native_tree::row_indent(path.depth()),
++                ..row_cx
++            });
++            let draw_cx = match agent_cx.as_ref() {
++                Some(agent_cx) => agent_cx,
++                None => &row_cx,
++            };
++            let row = self.agent_cell(
++                index,
++                agent,
++                snapshot,
++                draw_cx,
++                lines,
++                gap,
++                true,
++                path.is_some(),
++                cx,
++            );
++            let row = match path {
++                Some(path) => row
++                    .relative()
++                    .child(native_tree::guides(path, self.theme.muted))
++                    .when(selected && agent.focused, |row| {
++                        native_tree::selected_agent(row, &self.theme)
++                    }),
++                None => row,
++            };
+             if !(selected && agent.focused) {
+                 rows.push(row.into_any_element());
+                 continue;
+diff --git a/crates/herdr-gpui/src/sidebar/row.rs b/crates/herdr-gpui/src/sidebar/row.rs
+index 24f3512..4c4af46 100644
+--- a/crates/herdr-gpui/src/sidebar/row.rs
++++ b/crates/herdr-gpui/src/sidebar/row.rs
+@@ -426,6 +426,7 @@ pub(super) fn row(
+ ) -> Div {
+     let (font, theme, look, width) = (cx.font, cx.theme, cx.look, cx.width);
+     let focused = state.selected;
++    let text_focused = focused || state.bold_workspace;
+     let layout = look.density;
+     let configured = !lines.is_empty();
+     let teleported = badge.as_ref().is_some_and(|badge| badge.teleported);
+@@ -451,7 +452,7 @@ pub(super) fn row(
+         RowKind::Workspace if tree == RowTree::None => layout.workspace_details(),
+         RowKind::Workspace => layout.child_details(),
+     };
+-    let (name_color, weight, detail_color) = row_text(kind, focused, theme);
++    let (name_color, weight, detail_color) = row_text(kind, text_focused, theme);
+     let name_color = if teleported {
+         left_behind(name_color, theme)
+     } else {
+diff --git a/justfile b/justfile
+index 10c9a2a..92c48cf 100644
+--- a/justfile
++++ b/justfile
+@@ -86,6 +86,12 @@ stress-linux iterations="30" cpus="0.5" filter="":
+ test-sidebar:
+     cargo test --locked -p herdr-gpui --features integration-test --test live_gui native_sidebar -- --ignored --nocapture --test-threads=1
+ 
++# Exercise the Agent Tree parser and guide geometry without GPUI code generation.
++test-agent-tree:
++    mkdir -p target/agent-tree-tests
++    rustc --edition=2024 --test crates/herdr-gpui/src/sidebar/native_tree/path.rs -o target/agent-tree-tests/path-tests
++    target/agent-tree-tests/path-tests
++
+ # Native hover/scroll CPU scene budget in milliseconds, calibrated for this machine.
+ test-perf budget="30":
+     cargo build --locked --release -p herdr-gpui --features integration-test
