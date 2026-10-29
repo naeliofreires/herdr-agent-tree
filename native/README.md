@@ -1,9 +1,12 @@
 # Native GPUI companion
 
 These patches implement Option A in [Herdr GPUI](https://github.com/penso/herdr-gpui):
-workspace cards, continuous tree guides, and an accent selection drawn without
-changing the row's measured geometry. Workspace cards have 10px of external
-spacing on each side and 12px between cards.
+workspace cards with darker headers, continuous tree guides, and an accent
+selection drawn without changing the row's measured geometry. Workspace cards
+have 10px of external spacing on each side and 12px between cards.
+
+Agent rows show the native tool icon without repeating its name, keeping the
+task or tab title visible.
 
 The plugin still works with the released client through its textual prefix.
 The native companion consumes the optional `naeliofreires_tree_path` token.
@@ -17,11 +20,12 @@ Agent Tree plugin -> v1 binary branch paths -> GPUI guides and workspace cards
 
 The patches are based on upstream commit
 `a5b2df2db54061cd2785c3ddf184bce348be3fd1`. Use a checkout at that revision and
-apply both patches in numeric order. Paths below are relative to this plugin:
+apply all three patches in numeric order. Paths below are relative to this plugin:
 
 ```sh
 rtk git apply /path/to/herdr-agent-tree/native/01-native-tree-model.patch
 rtk git apply /path/to/herdr-agent-tree/native/02-native-sidebar-presentation.patch
+rtk git apply /path/to/herdr-agent-tree/native/03-compact-agent-icons.patch
 rtk proxy just test-agent-tree
 rtk proxy env CARGO_BUILD_JOBS=1 CARGO_PROFILE_DEV_DEBUG=0 CARGO_INCREMENTAL=0 cargo check --locked -p herdr-gpui --tests
 rtk proxy env CARGO_BUILD_JOBS=1 CARGO_PROFILE_DEV_DEBUG=0 CARGO_INCREMENTAL=0 just bundle debug

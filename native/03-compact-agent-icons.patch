@@ -1,0 +1,162 @@
+diff --git a/crates/herdr-gpui/src/sidebar/row/configured.rs b/crates/herdr-gpui/src/sidebar/row/configured.rs
+index 6371d05..5b74b84 100644
+--- a/crates/herdr-gpui/src/sidebar/row/configured.rs
++++ b/crates/herdr-gpui/src/sidebar/row/configured.rs
+@@ -17,6 +17,7 @@ use crate::{
+ };
+ use gpui::{prelude::*, *};
+ use herdr_client::protocol::AgentStatus;
++use std::borrow::Cow;
+ use unicode_width::UnicodeWidthStr;
+ 
+ /// What colors a configured row's tokens: the row they paint and its state.
+@@ -36,6 +37,7 @@ fn token_appearance(kind: &TokenKind, look: TokenLook, cx: &RowContext<'_>) -> (
+         TokenKind::StateIcon | TokenKind::Text(_, TextRole::Status) => {
+             (cx.indicators.color(look.status), FontWeight::NORMAL)
+         }
++        TokenKind::AgentIcon => (secondary, FontWeight::NORMAL),
+         TokenKind::Text(_, TextRole::Workspace) if look.teleported => {
+             (left_behind(name, theme), weight)
+         }
+@@ -83,11 +85,12 @@ fn fixed_glyphs(kind: &TokenKind, glyph: f32, status_width: f32) -> usize {
+ 
+ /// Fixed token widths preserve GPUI's text truncation during layout.
+ fn token_line(row: &[ResolvedToken], look: TokenLook, width: f32, cx: &RowContext<'_>) -> Div {
++    let row = visible_tokens(row);
+     let status = look.status;
+     let (font, theme) = (cx.font, cx.theme);
+     let glyph = glyph_width(font);
+     let budgets = budgets(
+-        row,
++        row.as_ref(),
+         |kind| fixed_glyphs(kind, glyph, cx.indicators.width(font)),
+         (width / glyph).floor() as usize,
+     );
+@@ -130,6 +133,7 @@ fn token_line(row: &[ResolvedToken], look: TokenLook, width: f32, cx: &RowContex
+                     )
+                     .debug_selector(|| "inline-status-mark".into()),
+                 ),
++            TokenKind::AgentIcon => cell,
+             TokenKind::GitStatus { ahead, behind } => cell.flex().gap(px(glyph)).children(
+                 [("↑", *ahead, 2), ("↓", *behind, 1)]
+                     .into_iter()
+@@ -166,6 +170,21 @@ fn token_line(row: &[ResolvedToken], look: TokenLook, width: f32, cx: &RowContex
+     place_line(parts, width, font, theme.muted)
+ }
+ 
++fn visible_tokens<'a>(row: &'a [ResolvedToken]) -> Cow<'a, [ResolvedToken]> {
++    if !row
++        .iter()
++        .any(|token| matches!(&token.kind, TokenKind::AgentIcon))
++    {
++        return Cow::Borrowed(row);
++    }
++    Cow::Owned(
++        row.iter()
++            .filter(|token| !matches!(&token.kind, TokenKind::AgentIcon))
++            .cloned()
++            .collect(),
++    )
++}
++
+ /// The `state_icon` leading a configured row's first line. It takes the row's
+ /// status slot; a configured row without one shows no status of its own.
+ pub(in crate::sidebar) fn leading_status(lines: &[Vec<ResolvedToken>]) -> Option<&ResolvedToken> {
+@@ -250,8 +269,12 @@ pub(super) fn configured_lines(
+         RowKind::Workspace => None,
+     };
+     let agent_at = lines.iter().position(|line| {
+-        line.iter()
+-            .any(|token| matches!(token.kind, TokenKind::Text(_, TextRole::Agent)))
++        line.iter().any(|token| {
++            matches!(
++                token.kind,
++                TokenKind::Text(_, TextRole::Agent) | TokenKind::AgentIcon
++            )
++        })
+     });
+     let (agent_size, agent_reserve) = agent_icon_size(font);
+     let workspace_reserve = if matches!(workspace_icon, RowIcon::None) {
+@@ -274,7 +297,12 @@ pub(super) fn configured_lines(
+         let selector = line_selector(key, index);
+         let icon_color = line
+             .iter()
+-            .find(|token| matches!(token.kind, TokenKind::Text(_, TextRole::Agent)))
++            .find(|token| {
++                matches!(
++                    token.kind,
++                    TokenKind::Text(_, TextRole::Agent) | TokenKind::AgentIcon
++                )
++            })
+             .map(|token| styled(token_appearance(&token.kind, look, cx), token.style, theme).0)
+             .unwrap_or(theme.muted);
+         let mut text = div().relative().w(px(label_width)).h(px(line_height(font)));
+@@ -300,6 +328,8 @@ pub(super) fn configured_lines(
+ 
+ #[cfg(test)]
+ mod tests {
++    mod compact_icons;
++
+     use super::{RowContext, RowKind, TokenLook, left_behind, token_appearance};
+     use crate::config::{FontConfig, LayoutMode, Theme};
+     use crate::sidebar::tokens::{TextRole, TokenKind};
+diff --git a/crates/herdr-gpui/src/sidebar/row/configured/tests/compact_icons.rs b/crates/herdr-gpui/src/sidebar/row/configured/tests/compact_icons.rs
+new file mode 100644
+index 0000000..3819872
+--- /dev/null
++++ b/crates/herdr-gpui/src/sidebar/row/configured/tests/compact_icons.rs
+@@ -0,0 +1,30 @@
++use super::super::visible_tokens;
++use crate::sidebar::tokens::{ResolvedToken, TextRole, TokenKind};
++use std::borrow::Cow;
++
++fn normal_tokens() -> Vec<ResolvedToken> {
++    vec![
++        ResolvedToken::unstyled(TokenKind::StateIcon),
++        ResolvedToken::unstyled(TokenKind::Text("tab 1".into(), TextRole::Secondary)),
++    ]
++}
++
++#[test]
++fn visible_tokens_borrows_normal_rows_unchanged() {
++    let normal = normal_tokens();
++    assert!(matches!(visible_tokens(&normal), Cow::Borrowed(_)));
++    assert_eq!(visible_tokens(&normal).as_ref(), normal.as_slice());
++}
++
++#[test]
++fn visible_tokens_filters_icon_before_budgeting() {
++    let normal = normal_tokens();
++    let with_icon = [
++        normal[0].clone(),
++        ResolvedToken::unstyled(TokenKind::AgentIcon),
++        normal[1].clone(),
++    ];
++    let visible = visible_tokens(&with_icon);
++    assert!(matches!(&visible, Cow::Owned(_)));
++    assert_eq!(visible.as_ref(), &[normal[0].clone(), normal[1].clone()]);
++}
+diff --git a/crates/herdr-gpui/src/sidebar/tokens.rs b/crates/herdr-gpui/src/sidebar/tokens.rs
+index c167467..54d643c 100644
+--- a/crates/herdr-gpui/src/sidebar/tokens.rs
++++ b/crates/herdr-gpui/src/sidebar/tokens.rs
+@@ -19,6 +19,7 @@ pub(super) struct ResolvedToken {
+ #[derive(Clone, Debug, PartialEq, Eq)]
+ pub(super) enum TokenKind {
+     StateIcon,
++    AgentIcon,
+     Text(SharedString, TextRole),
+     GitStatus { ahead: usize, behind: usize },
+ }
+diff --git a/crates/herdr-gpui/src/sidebar/tokens/tests.rs b/crates/herdr-gpui/src/sidebar/tokens/tests.rs
+index 35dc9ba..a8c21a6 100644
+--- a/crates/herdr-gpui/src/sidebar/tokens/tests.rs
++++ b/crates/herdr-gpui/src/sidebar/tokens/tests.rs
+@@ -18,6 +18,7 @@ fn texts(rows: &[Vec<ResolvedToken>]) -> Vec<Vec<String>> {
+             row.iter()
+                 .map(|token| match &token.kind {
+                     TokenKind::StateIcon => "<icon>".to_owned(),
++                    TokenKind::AgentIcon => "<agent-icon>".to_owned(),
+                     TokenKind::GitStatus { ahead, behind } => format!("{ahead}/{behind}"),
+                     kind => kind.text().unwrap().to_string(),
+                 })

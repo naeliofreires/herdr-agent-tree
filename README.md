@@ -1,7 +1,7 @@
 # Herdr Agent Tree
 
-The optional [native GPUI companion](native/README.md) adds workspace cards,
-continuous tree guides, and accent selection to the sidebar.
+The optional [native GPUI companion](native/README.md) adds workspace cards with
+darker headers, continuous tree guides, compact agent icons, and accent selection.
 
 A Herdr plugin that keeps parent agents and their children adjacent in the
 sidebar, with textual tree guides and an explicit relationship registry.
@@ -33,9 +33,9 @@ remain owned by their original sources.
   ancestor styling, and clickable branch expansion need changes to Herdr GPUI.
 - Each row also receives `naeliofreires_tree_path`, a compact `v1:` binary
   branch path for an optional native GPUI companion. The released GPUI client
-  currently falls back to `naeliofreires_tree_prefix`; this repository does not
-  ship or install native GPUI changes, and its companion renderer is still
-  development work.
+  currently falls back to `naeliofreires_tree_prefix`. Native source patches are
+  included separately and are not installed automatically; the companion
+  renderer is still development work.
 - The plugin controls the session's one agent-view projection while enabled;
   do not enable another agent-view plugin at the same time.
 

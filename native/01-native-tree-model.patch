@@ -12,10 +12,10 @@ index 22b7842..ccfd14c 100644
  mod rail;
 diff --git a/crates/herdr-gpui/src/sidebar/native_tree.rs b/crates/herdr-gpui/src/sidebar/native_tree.rs
 new file mode 100644
-index 0000000..2f84975
+index 0000000..bc7b8e3
 --- /dev/null
 +++ b/crates/herdr-gpui/src/sidebar/native_tree.rs
-@@ -0,0 +1,243 @@
+@@ -0,0 +1,256 @@
 +//! Native tree affordances for the opt-in Agent Tree plugin view.
 +
 +use super::tokens::{ResolvedToken, TokenKind};
@@ -27,6 +27,8 @@ index 0000000..2f84975
 +mod path;
 +use path::GUIDE_OFFSET;
 +pub(crate) use path::{TreePath, guide_levels, guide_origin, parse_path, row_indent};
++#[cfg(test)]
++mod tests;
 +
 +pub(super) fn agent_path(agent: &ClientShellAgent) -> Option<TreePath> {
 +    let value = agent
@@ -63,12 +65,10 @@ index 0000000..2f84975
 +    lines: Vec<Vec<ResolvedToken>>,
 +    agent: &ClientShellAgent,
 +) -> Vec<Vec<ResolvedToken>> {
-+    let Some(prefix) = prefix_value(agent) else {
-+        return lines;
-+    };
++    let prefix = prefix_value(agent);
 +    lines
 +        .into_iter()
-+        .map(|row| without_prefix(row, prefix))
++        .map(|row| native_tokens(row, prefix))
 +        .filter(|row: &Vec<_>| !row.is_empty())
 +        .collect()
 +}
@@ -81,9 +81,21 @@ index 0000000..2f84975
 +        .map(|(_, value)| value.as_str())
 +}
 +
-+fn without_prefix(row: Vec<ResolvedToken>, prefix: &str) -> Vec<ResolvedToken> {
++fn native_tokens(row: Vec<ResolvedToken>, prefix: Option<&str>) -> Vec<ResolvedToken> {
 +    row.into_iter()
-+        .filter(|token| !matches!(&token.kind, TokenKind::Text(text, _) if text.as_ref() == prefix))
++        .filter_map(|mut token| {
++            if matches!(
++                &token.kind,
++                TokenKind::Text(_, super::tokens::TextRole::Agent)
++            ) {
++                token.kind = TokenKind::AgentIcon;
++                return Some(token);
++            }
++            let remove = prefix.is_some_and(
++                |prefix| matches!(&token.kind, TokenKind::Text(text, _) if text.as_ref() == prefix),
++            );
++            (!remove).then_some(token)
++        })
 +        .collect()
 +}
 +
@@ -131,12 +143,13 @@ index 0000000..2f84975
 +}
 +
 +pub(super) fn workspace_header(row: Stateful<Div>, theme: &Theme) -> Stateful<Div> {
++    let header_fill = crate::config::mix(theme.sidebar_background(), 0x000000, 18);
 +    row.debug_selector(|| "native-tree-workspace-header".into())
 +        .text_size(px(14.))
 +        .font_weight(FontWeight::BOLD)
 +        .border_b_1()
 +        .border_color(rgba((theme.foreground << 8) | 0x30))
-+        .bg(rgba((theme.surface << 8) | 0x28))
++        .bg(rgb(header_fill))
 +}
 +
 +pub(super) fn workspace_card(unit: Div, theme: &Theme) -> Div {
@@ -360,4 +373,63 @@ index 0000000..72571c0
 +    assert_eq!(guide_origin(1), 32.);
 +    assert_eq!(guide_origin(3), 72.);
 +    assert_eq!(row_indent(3), 60.);
++}
+diff --git a/crates/herdr-gpui/src/sidebar/native_tree/tests.rs b/crates/herdr-gpui/src/sidebar/native_tree/tests.rs
+new file mode 100644
+index 0000000..9613f36
+--- /dev/null
++++ b/crates/herdr-gpui/src/sidebar/native_tree/tests.rs
+@@ -0,0 +1,53 @@
++use super::native_tokens;
++use crate::config::TokenStyle;
++use crate::sidebar::tokens::{ResolvedToken, TextRole, TokenKind};
++use gpui::SharedString;
++
++fn agent_row(with_prefix: bool) -> Vec<ResolvedToken> {
++    let mut row = vec![state_token(), agent_token(), tab_token()];
++    if with_prefix {
++        row.push(prefix_token());
++    }
++    row
++}
++
++fn state_token() -> ResolvedToken {
++    ResolvedToken::unstyled(TokenKind::StateIcon)
++}
++
++fn agent_token() -> ResolvedToken {
++    ResolvedToken {
++        kind: TokenKind::Text(SharedString::from("opencode"), TextRole::Agent),
++        style: TokenStyle {
++            bold: Some(true),
++            ..TokenStyle::default()
++        },
++    }
++}
++
++fn tab_token() -> ResolvedToken {
++    ResolvedToken::unstyled(TokenKind::Text("tab 1".into(), TextRole::Secondary))
++}
++
++fn prefix_token() -> ResolvedToken {
++    ResolvedToken::unstyled(TokenKind::Text("\u{200b}".into(), TextRole::Muted))
++}
++
++#[test]
++fn native_tokens_preserve_state_style_and_tab_with_prefix() {
++    let transformed = native_tokens(agent_row(true), Some("\u{200b}"));
++    assert_eq!(transformed.len(), 3);
++    assert_eq!(transformed[0], agent_row(false)[0]);
++    assert_eq!(transformed[1].kind, TokenKind::AgentIcon);
++    assert_eq!(transformed[1].style.bold, Some(true));
++    assert_eq!(transformed[2], agent_row(false)[2]);
++}
++
++#[test]
++fn native_tokens_keep_prefix_text_when_no_prefix_is_reported() {
++    let row = agent_row(true);
++    let transformed = native_tokens(row.clone(), None);
++    let mut expected = row;
++    expected[1].kind = TokenKind::AgentIcon;
++    assert_eq!(transformed, expected);
 +}
