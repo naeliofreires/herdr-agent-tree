@@ -8,6 +8,7 @@ import sys
 from pathlib import Path
 
 from .api import AgentTreeApi, ApiError, HerdrApi
+from .installation import write_installation_guide
 from .model import Agent, LinkState
 from .storage import StateStore
 from .tree import build_rows, parse_agents, validate_graph, validate_link
@@ -193,7 +194,7 @@ def parser() -> argparse.ArgumentParser:
     """Build the plugin's command parser."""
     command_parser = argparse.ArgumentParser(prog="agent-tree")
     commands = command_parser.add_subparsers(dest="command", required=True)
-    for name in ("sync", "event", "enable", "disable", "list"):
+    for name in ("sync", "event", "enable", "disable", "list", "setup"):
         commands.add_parser(name)
     link_parser = commands.add_parser("link")
     link_parser.add_argument("child")
@@ -213,10 +214,20 @@ def main(argv: list[str] | None = None) -> int:
 
 
 def _run(arguments: argparse.Namespace) -> int:
+    if arguments.command == "setup":
+        write_installation_guide(sys.stdout)
+        return 0
     store = store_from_env()
     if arguments.command == "event" and not store.load().enabled:
         return 0
     api = api_from_env()
+    return _dispatch_tree_command(arguments, api, store)
+
+
+def _dispatch_tree_command(
+    arguments: argparse.Namespace, api: AgentTreeApi, store: StateStore
+) -> int:
+    """Dispatch commands after the setup and disabled-event guards."""
     if arguments.command == "list":
         list_links(api, store)
     elif arguments.command == "sync":
@@ -225,6 +236,7 @@ def _run(arguments: argparse.Namespace) -> int:
         sync(api, store)
     elif arguments.command == "enable":
         print(f"enabled; synced {enable(api, store)} agents")
+        write_installation_guide(sys.stdout)
     elif arguments.command == "disable":
         print(f"disabled {disable(api, store)} agents")
     elif arguments.command == "link":

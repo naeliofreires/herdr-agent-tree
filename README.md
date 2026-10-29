@@ -4,6 +4,12 @@ Herdr Agent Tree is an MIT-licensed plugin for Herdr 0.9.0+ that keeps
 explicitly linked parent and child agents adjacent in the sidebar. It runs on
 macOS and Linux with Python 3.11+ and has no Python runtime dependencies.
 
+> **Workspace cards require the native client.**
+> `herdr plugin install naeliofreires/herdr-agent-tree` installs the Python
+> plugin and text guides. For cards, darker headers, continuous guides, and
+> compact agent icons, follow the [complete installation guide](INSTALL.md)
+> and launch the resulting native client.
+
 The plugin does not infer relationships from titles, process names, or timing.
 Each link is authored explicitly and stored by stable terminal ID. The optional
 [native GPUI companion](native/README.md) adds native guides and hierarchy
@@ -34,7 +40,24 @@ prefix fallback.
 
 The native treatment is scoped to nested Agent Tree rows with valid paths. It
 has no collapsible branch controls. See [native/README.md](native/README.md)
-for the pinned source patches and build steps.
+for the patch reference; use [INSTALL.md](INSTALL.md) for current builds.
+
+## Install the complete client with an agent
+
+Point an agent at this repository and ask it to install or update the native
+Agent Tree client. The agent should follow [INSTALL.md](INSTALL.md), which
+selects the latest stable Herdr GPUI release at execution time, ports these
+patches when upstream has moved, verifies the build, and installs a reversible
+user-local bundle. A typical request is:
+
+> Install or update Herdr Agent Tree from this repository. Use the latest stable
+> `penso/herdr-gpui` release, apply and port the native patches, run the required
+> tests, install the validated bundle for my user, and report the exact source
+> commit, installed path, backups, and any visual checks still pending.
+
+`herdr plugin install naeliofreires/herdr-agent-tree` installs only the Python
+plugin and its textual fallback. Use the agent workflow when workspace cards,
+native guides, selection markers, or compact agent icons are required.
 
 ## Requirements and boundaries
 
@@ -55,6 +78,9 @@ RTK is not installed.
 
 ## Install and configure
 
+Herdr shows the package as **Agent Tree (cards require native client)** in its
+installation preview. The plugin ID remains `naeliofreires.agent-tree`.
+
 Choose one installation path. A local checkout is recommended when you will
 author relationships; the GitHub-managed path is convenient for a fixed copy.
 
@@ -74,6 +100,23 @@ rtk proxy herdr plugin install naeliofreires/herdr-agent-tree
 
 The managed installer accepts the standard `OWNER/REPO[/SUBDIR] [--ref REF]`
 form. Do not run both paths for the same plugin ID.
+
+From the plugin checkout, print setup instructions without a running daemon:
+
+```sh
+rtk proxy python3 -m agent_tree setup
+```
+
+Both installation paths also register a `setup` action. Herdr runs actions
+asynchronously and saves their output in plugin logs:
+
+```sh
+rtk proxy herdr plugin action invoke naeliofreires.agent-tree.setup
+rtk proxy herdr plugin log list --plugin naeliofreires.agent-tree --limit 3
+```
+
+Once the action finishes, its log contains the guide. The setup command and
+action explain the two installation layers; they do not build the native client.
 
 Add the plugin's text fallback token to `~/.config/herdr/config.toml`. Keep
 `state_icon` first so the native lifecycle indicator remains visible:
@@ -104,6 +147,10 @@ rtk proxy herdr server reload-config
 rtk proxy /Applications/Herdr.app/Contents/MacOS/Herdr config reload
 rtk proxy herdr plugin action invoke naeliofreires.agent-tree.enable
 ```
+
+A successful explicit `enable` also writes the setup guide to its command
+output. When invoked through Herdr, read that output in the plugin logs above.
+Background event hooks stay quiet.
 
 The macOS example uses the installed app. For the native companion, use the
 executable inside your [built bundle](native/README.md#reproduce-the-patched-client).

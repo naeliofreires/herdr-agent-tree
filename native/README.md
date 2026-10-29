@@ -1,5 +1,11 @@
 # Native GPUI companion
 
+For a user-facing installation or update, follow the repository's
+[INSTALL.md](../INSTALL.md). It selects the latest stable upstream release,
+ports these patches when needed, validates the resulting client, and installs a
+user-local bundle with rollback metadata. The procedure below remains a
+reproducible source reference for the historical patch baseline.
+
 This directory contains three source patches for the native
 [Herdr GPUI client](https://github.com/penso/herdr-gpui). They consume the
 plugin's `naeliofreires_tree_path` token and add native hierarchy treatment to
@@ -34,18 +40,21 @@ Agent Tree metadata
         +-- textual prefix ----------> released/unpatched GPUI fallback
 ```
 
-Before building, install Rust 1.96.1, `just`, and the platform dependencies
-required by the pinned upstream checkout. On macOS, Xcode Command Line Tools
-provide the pinned base's platform toolchain. Linux needs the dependencies in
-the pinned upstream [From source](https://github.com/penso/herdr-gpui/blob/a5b2df2db54061cd2785c3ddf184bce348be3fd1/README.md#from-source)
+For the historical baseline, install the Rust toolchain, `just`, and platform
+dependencies documented by that pinned upstream checkout. Current installs must
+read the selected release's toolchain and platform instructions instead; the
+agent runbook handles that discovery. On macOS, Xcode Command Line Tools are
+required. Linux dependencies are described in the pinned upstream [From source](https://github.com/penso/herdr-gpui/blob/a5b2df2db54061cd2785c3ddf184bce348be3fd1/README.md#from-source)
 and [Linux Builds](https://github.com/penso/herdr-gpui/blob/a5b2df2db54061cd2785c3ddf184bce348be3fd1/README.md#linux-builds)
 sections.
 
-## Pinned source and licenses
+## Historical patch baseline and licenses
 
-The patches target upstream commit
+The original patches target upstream commit
 [`a5b2df2db54061cd2785c3ddf184bce348be3fd1`](https://github.com/penso/herdr-gpui/tree/a5b2df2db54061cd2785c3ddf184bce348be3fd1),
-not the moving default branch. Apply all three files in numeric order:
+not the moving default branch. Build the latest release through [INSTALL.md](../INSTALL.md);
+use this pinned commit only when reproducing the original patch set exactly.
+Apply all three files in numeric order:
 
 1. `01-native-tree-model.patch`
 2. `02-native-sidebar-presentation.patch`

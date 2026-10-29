@@ -1,12 +1,18 @@
 id = "naeliofreires.agent-tree"
-name = "Agent Tree"
-version = "0.2.0"
+name = "Agent Tree (cards require native client)"
+version = "0.2.1"
 min_herdr_version = "0.9.0"
-description = "Show explicit parent and child agents as a readable tree in Herdr's sidebar."
+description = "Text tree for parent/child agents. Workspace cards require the native GPUI client."
 platforms = ["macos", "linux"]
 
 [[startup]]
 command = ["python3", "-m", "agent_tree", "event"]
+
+[[actions]]
+id = "setup"
+title = "Setup: workspace cards need the native client"
+contexts = ["workspace"]
+command = ["python3", "-m", "agent_tree", "setup"]
 
 [[actions]]
 id = "enable"
