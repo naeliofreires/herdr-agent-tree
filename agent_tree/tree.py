@@ -87,33 +87,20 @@ def _validate_chain(
     cursor = start
     depth = 1
     while cursor in links:
-        parent = _chain_parent(cursor, links, agents, seen, start)
-        if parent is None:
+        if cursor in seen:
+            raise ValueError(f"link graph at {start!r} contains a cycle")
+        seen.add(cursor)
+        parent = links[cursor]
+        current = agents.get(cursor)
+        parent_agent = agents.get(parent)
+        if current is None or parent_agent is None:
+            return
+        if current.workspace_id != parent_agent.workspace_id:
             return
         depth += 1
         if depth > MAX_DEPTH:
             raise ValueError(f"link graph at {start!r} exceeds depth {MAX_DEPTH}")
         cursor = parent
-
-
-def _chain_parent(
-    cursor: str,
-    links: dict[str, str],
-    agents: dict[str, Agent],
-    seen: set[str],
-    start: str,
-) -> str | None:
-    if cursor in seen:
-        raise ValueError(f"link graph at {start!r} contains a cycle")
-    seen.add(cursor)
-    parent = links[cursor]
-    current = agents.get(cursor)
-    parent_agent = agents.get(parent)
-    if current is None or parent_agent is None:
-        return None
-    if current.workspace_id != parent_agent.workspace_id:
-        return None
-    return parent
 
 
 def build_rows(agents: list[Agent], links: dict[str, str]) -> list[TreeRow]:
@@ -146,14 +133,12 @@ def _walk_roots(
     agents: list[Agent], roots: dict[str, list[Agent]], children: dict[str, list[Agent]]
 ) -> list[TreeRow]:
     rows: list[TreeRow] = []
-    rank = 0
     for workspace in dict.fromkeys(agent.workspace_id for agent in agents):
         for root_index, root in enumerate(roots[workspace]):
-            rank = _visit(
+            _visit(
                 root,
                 children,
                 rows,
-                rank,
                 (),
                 root_index == len(roots[workspace]) - 1,
             )
@@ -164,23 +149,28 @@ def _visit(
     agent: Agent,
     children: dict[str, list[Agent]],
     rows: list[TreeRow],
-    rank: int,
     guides: tuple[bool, ...],
     last: bool,
-) -> int:
+) -> None:
     rows.append(
         TreeRow(
             agent,
             _row_prefix(guides, last),
-            f"{rank:08d}",
+            f"{len(rows):08d}",
             _branch_path(guides, last),
         )
     )
-    rank += 1
-    descendants = children.get(agent.terminal_id, [])
     if len(guides) >= MAX_DEPTH - 1:
-        return rank
-    return _visit_descendants(descendants, children, rows, rank, guides, last)
+        return
+    descendants = children.get(agent.terminal_id, [])
+    for index, child in enumerate(descendants):
+        _visit(
+            child,
+            children,
+            rows,
+            guides + (not last,),
+            index == len(descendants) - 1,
+        )
 
 
 def _row_prefix(guides: tuple[bool, ...], last: bool) -> str:
@@ -194,23 +184,3 @@ def _branch_path(guides: tuple[bool, ...], last: bool) -> str:
     ancestor_bits = "".join("1" if more else "0" for more in guides)
     current_bit = "0" if last else "1"
     return f"v1:{ancestor_bits}{current_bit}"
-
-
-def _visit_descendants(
-    descendants: list[Agent],
-    children: dict[str, list[Agent]],
-    rows: list[TreeRow],
-    rank: int,
-    guides: tuple[bool, ...],
-    parent_last: bool,
-) -> int:
-    for index, child in enumerate(descendants):
-        rank = _visit(
-            child,
-            children,
-            rows,
-            rank,
-            guides + (not parent_last,),
-            index == len(descendants) - 1,
-        )
-    return rank

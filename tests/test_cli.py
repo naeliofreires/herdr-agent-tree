@@ -102,6 +102,69 @@ class CliTests(unittest.TestCase):
         unlink(self.api, self.store, "child")
         self.assertEqual(self.store.load().links, {})
 
+    def test_all_missing_pane_codes_are_tolerated_in_sync_and_disable(self) -> None:
+        for code in ("pane_not_found", "agent_pane_not_found", "agent_not_found"):
+            with self.subTest(code=code):
+                self.store.save(LinkState(True, {}))
+                api = FakeApi(self.api.records)
+                with patch.object(
+                    api, "report", side_effect=ApiError("missing", code)
+                ) as report:
+                    self.assertEqual(sync(api, self.store), 2)
+                    self.assertEqual(disable(api, self.store), 2)
+                self.assertEqual(report.call_count, 4)
+                self.assertEqual(api.view_sets, 1)
+                self.assertEqual(api.view_clears, 1)
+                self.assertFalse(self.store.load().enabled)
+
+    def test_unexpected_report_error_propagates_in_sync_and_disable(self) -> None:
+        for command in (sync, disable):
+            with self.subTest(command=command.__name__):
+                self.store.save(LinkState(True, {}))
+                api = FakeApi(self.api.records)
+                error = ApiError("daemon unavailable", "internal")
+                with patch.object(api, "report", side_effect=error) as report:
+                    with self.assertRaises(ApiError) as raised:
+                        command(api, self.store)
+                self.assertIs(raised.exception, error)
+                self.assertEqual(report.call_count, 1)
+                self.assertEqual(api.view_sets, 0)
+                self.assertEqual(api.view_clears, 0)
+                self.assertEqual(self.store.load().enabled, command is sync)
+
+    def test_set_view_failure_rolls_back_and_clears_exact_report_tokens(self) -> None:
+        previous = LinkState(False, {"child": "root"})
+        self.store.save(previous)
+        error = ApiError("view unavailable", "internal")
+        with patch.object(self.api, "set_view", side_effect=error):
+            with self.assertRaises(ApiError) as raised:
+                enable(self.api, self.store)
+        self.assertIs(raised.exception, error)
+        self.assertEqual(self.store.load(), previous)
+        self.assertEqual(self.api.reports, [
+            ("p1", {
+                "naeliofreires_tree_prefix": "\u200b└─ ",
+                "naeliofreires_tree_order": "00000000",
+                "naeliofreires_tree_path": "v1:0",
+            }),
+            ("p2", {
+                "naeliofreires_tree_prefix": "\u200b   └─ ",
+                "naeliofreires_tree_order": "00000001",
+                "naeliofreires_tree_path": "v1:00",
+            }),
+            ("p1", {
+                "naeliofreires_tree_prefix": None,
+                "naeliofreires_tree_order": None,
+                "naeliofreires_tree_path": None,
+            }),
+            ("p2", {
+                "naeliofreires_tree_prefix": None,
+                "naeliofreires_tree_order": None,
+                "naeliofreires_tree_path": None,
+            }),
+        ])
+        self.assertEqual(self.api.view_clears, 1)
+
     def test_disable_clears_plugin_tokens_and_view(self) -> None:
         self.store.save(LinkState(True, {}))
         self.assertEqual(disable(self.api, self.store), 2)

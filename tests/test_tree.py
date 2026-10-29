@@ -1,6 +1,6 @@
 import unittest
 
-from agent_tree.model import Agent, LinkState, StateShapeError
+from agent_tree.model import Agent, LinkState, MAX_DEPTH, StateShapeError
 from agent_tree.tree import build_rows, parse_agents, validate_graph, validate_link
 
 
@@ -9,6 +9,54 @@ def agent(terminal: str, pane: str, workspace: str = "w1", tab: str = "t1") -> A
 
 
 class TreeTests(unittest.TestCase):
+    def test_empty_input_ignores_unknown_cycles(self) -> None:
+        self.assertEqual(build_rows([], {"missing": "missing"}), [])
+
+    def test_missing_ancestor_ends_chain_and_becomes_root(self) -> None:
+        records = [agent("child", "p1"), agent("parent", "p2")]
+        rows = build_rows(
+            records, {"child": "parent", "parent": "missing", "missing": "child"}
+        )
+        self.assertEqual([row.agent.terminal_id for row in rows], ["parent", "child"])
+        self.assertEqual([row.branch_path for row in rows], ["v1:0", "v1:00"])
+
+    def test_workspace_boundary_breaks_apparent_cycle(self) -> None:
+        records = [agent("a", "p1"), agent("b", "p2"), agent("c", "p3", "w2")]
+        rows = build_rows(records, {"a": "b", "b": "c", "c": "a"})
+        self.assertEqual([row.agent.terminal_id for row in rows], ["b", "a", "c"])
+        self.assertEqual(
+            [row.prefix for row in rows], ["\u200b└─ ", "\u200b   └─ ", "\u200b└─ "]
+        )
+
+    def test_interleaved_workspaces_keep_input_order_and_global_ranks(self) -> None:
+        records = [
+            agent("a-child", "p1", "w2"),
+            agent("b-root", "p2"),
+            agent("a-root", "p3", "w2"),
+            agent("b-child", "p4"),
+            agent("a-other", "p5", "w2"),
+        ]
+        rows = build_rows(records, {"a-child": "a-root", "b-child": "b-root"})
+        self.assertEqual(
+            [row.agent.terminal_id for row in rows],
+            ["a-root", "a-child", "a-other", "b-root", "b-child"],
+        )
+        self.assertEqual([row.order for row in rows], [f"{i:08d}" for i in range(5)])
+        self.assertEqual(
+            [row.branch_path for row in rows],
+            ["v1:1", "v1:10", "v1:0", "v1:0", "v1:00"],
+        )
+
+    def test_cycle_and_depth_errors_preserve_check_order(self) -> None:
+        with self.assertRaisesRegex(ValueError, "^link graph at 'a' contains a cycle$"):
+            validate_graph([agent("a", "p")], {"a": "a"})
+        records = [agent(str(i), f"p{i}") for i in range(MAX_DEPTH)]
+        links = {str(i): str((i + 1) % MAX_DEPTH) for i in range(MAX_DEPTH)}
+        with self.assertRaisesRegex(
+            ValueError, f"^link graph at '0' exceeds depth {MAX_DEPTH}$"
+        ):
+            validate_graph(records, links)
+
     def test_depth_first_prefixes_and_stable_orders(self) -> None:
         records = [
             agent("root", "p1"),

@@ -51,12 +51,8 @@ def sync(api: AgentTreeApi, store: StateStore) -> int:
         return _sync_locked(api, store)
 
 
-def _sync_locked(api: AgentTreeApi, store: StateStore) -> int:
-    return _sync_locked_with_cleanup(api, store, False)
-
-
-def _sync_locked_with_cleanup(
-    api: AgentTreeApi, store: StateStore, cleanup_on_error: bool
+def _sync_locked(
+    api: AgentTreeApi, store: StateStore, *, cleanup_on_error: bool = False
 ) -> int:
     state = store.load()
     if not state.enabled:
@@ -91,7 +87,11 @@ def _cleanup_partial(api: AgentTreeApi, pane_ids: list[str]) -> None:
 
 
 def _report_if_present(
-    api: AgentTreeApi, pane_id: str, prefix: str, order: str, branch_path: str
+    api: AgentTreeApi,
+    pane_id: str,
+    prefix: str | None,
+    order: str | None,
+    branch_path: str | None,
 ) -> None:
     try:
         api.report(
@@ -113,7 +113,7 @@ def enable(api: AgentTreeApi, store: StateStore) -> int:
         previous = store.load()
         store.save(LinkState(enabled=True, links=previous.links))
         try:
-            return _sync_locked_with_cleanup(api, store, not previous.enabled)
+            return _sync_locked(api, store, cleanup_on_error=not previous.enabled)
         except Exception:
             store.save(previous)
             raise
@@ -134,18 +134,7 @@ def disable(api: AgentTreeApi, store: StateStore) -> int:
 
 
 def _clear_if_present(api: AgentTreeApi, pane_id: str) -> None:
-    try:
-        api.report(
-            pane_id,
-            {
-                "naeliofreires_tree_prefix": None,
-                "naeliofreires_tree_order": None,
-                "naeliofreires_tree_path": None,
-            },
-        )
-    except ApiError as exc:
-        if exc.code not in NOT_FOUND_CODES:
-            raise
+    _report_if_present(api, pane_id, None, None, None)
 
 
 def _agent_refs(agents: list[Agent]) -> dict[str, Agent]:
