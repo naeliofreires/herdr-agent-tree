@@ -11,20 +11,12 @@ is the primary path to the complete experience; detailed guardrails and steps
 live in [INSTALL.md](INSTALL.md):
 
 ```text
-Install the complete Herdr Agent Tree experience from
-https://github.com/naeliofreires/herdr-agent-tree
-
-You are a coding agent with local terminal access. Read the repository's
-AGENTS.md and follow this runbook:
+Instale o Herdr Agent Tree seguindo integralmente:
 https://raw.githubusercontent.com/naeliofreires/herdr-agent-tree/main/INSTALL.md
-Resolve the latest stable daemon from herdrdev/herdr and GPUI from
-penso/herdr-gpui; verify compatibility and full tag SHAs, and install missing
-prerequisites. Install/enable the plugin, port native patches, build GPUI,
-install a user-local app, launch its exact bundle, and verify cards, headers,
-guides, stable selection, and icons retaining titles, lifecycle, and accessibility.
-Preserve config, links, sessions. Report CLI/server versions/protocol, SHAs, executable
-hash/path, tests, rollback, blockers, and visual checks. Use reversible work;
-request permissions only when required.
+
+Descubra as últimas versões estáveis do Herdr e do Herdr GPUI, instale os pré-requisitos e o plugin, aplique todos os patches nativos, compile, instale e abra o cliente com os estilos do repositório.
+
+Preserve minhas configurações e sessões. Valide os cards, cabeçalhos, árvore, seleção e ícones antes de concluir. Informe versões, caminho instalado, testes, rollback e qualquer bloqueio.
 ```
 
 > **Workspace cards require the native client.**
