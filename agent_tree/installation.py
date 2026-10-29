@@ -6,6 +6,10 @@ from typing import TextIO
 
 INSTALL_GUIDE = """Herdr Agent Tree setup
 
+For the complete experience, give one prompt to a coding agent with local
+terminal access. Copy the prompt for the latest stable Herdr and native styles:
+https://github.com/naeliofreires/herdr-agent-tree/blob/main/README.md#install-with-one-prompt
+
 The Python plugin provides the parent/child hierarchy and textual sidebar guides.
 Workspace cards, darker headers, continuous native guides, accent selection, and
 icon-only agents require the patched Herdr GPUI native client.

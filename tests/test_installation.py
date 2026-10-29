@@ -44,6 +44,7 @@ class InstallationTests(unittest.TestCase):
         self.assertIn("does not build or modify", guide)
         self.assertIn("/INSTALL.md", guide)
         self.assertIn("README.md#install-and-configure", guide)
+        self.assertIn("README.md#install-with-one-prompt", guide)
 
     def test_setup_action_contract_is_workspace_scoped(self) -> None:
         manifest_path = Path(__file__).parents[1] / "herdr-plugin.toml"

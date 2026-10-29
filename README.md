@@ -4,6 +4,29 @@ Herdr Agent Tree is an MIT-licensed plugin for Herdr 0.9.0+ that keeps
 explicitly linked parent and child agents adjacent in the sidebar. It runs on
 macOS and Linux with Python 3.11+ and has no Python runtime dependencies.
 
+## Install with one prompt
+
+Use this single request with a coding agent that has local terminal access. It
+is the primary path to the complete experience; detailed guardrails and steps
+live in [INSTALL.md](INSTALL.md):
+
+```text
+Install the complete Herdr Agent Tree experience from
+https://github.com/naeliofreires/herdr-agent-tree
+
+You are a coding agent with local terminal access. Read the repository's
+AGENTS.md and follow this runbook:
+https://raw.githubusercontent.com/naeliofreires/herdr-agent-tree/main/INSTALL.md
+Resolve the latest stable daemon from herdrdev/herdr and GPUI from
+penso/herdr-gpui; verify compatibility and full tag SHAs, and install missing
+prerequisites. Install/enable the plugin, port native patches, build GPUI,
+install a user-local app, launch its exact bundle, and verify cards, headers,
+guides, stable selection, and icons retaining titles, lifecycle, and accessibility.
+Preserve config, links, sessions. Report CLI/server versions/protocol, SHAs, executable
+hash/path, tests, rollback, blockers, and visual checks. Use reversible work;
+request permissions only when required.
+```
+
 > **Workspace cards require the native client.**
 > `herdr plugin install naeliofreires/herdr-agent-tree` installs the Python
 > plugin and text guides. For cards, darker headers, continuous guides, and
@@ -38,30 +61,25 @@ prefix fallback.
 | Selection | Standard row selection. | Accent background and a left marker that keep tree guides aligned. |
 | Agent identity | Engine name remains in the row. | Tool icon and task/tab title, with lifecycle indicators and accessibility labels. |
 
-The native treatment is scoped to nested Agent Tree rows with valid paths. It
-has no collapsible branch controls. See [native/README.md](native/README.md)
+The native treatment is scoped to nested Agent Tree rows with valid paths.
+Cards appear in workspaces containing detected agents; empty workspaces retain
+the standard layout. There are no collapsible branch controls. See
+[native/README.md](native/README.md)
 for the patch reference; use [INSTALL.md](INSTALL.md) for current builds.
-
-## Install the complete client with an agent
-
-Point an agent at this repository and ask it to install or update the native
-Agent Tree client. The agent should follow [INSTALL.md](INSTALL.md), which
-selects the latest stable Herdr GPUI release at execution time, ports these
-patches when upstream has moved, verifies the build, and installs a reversible
-user-local bundle. A typical request is:
-
-> Install or update Herdr Agent Tree from this repository. Use the latest stable
-> `penso/herdr-gpui` release, apply and port the native patches, run the required
-> tests, install the validated bundle for my user, and report the exact source
-> commit, installed path, backups, and any visual checks still pending.
-
-`herdr plugin install naeliofreires/herdr-agent-tree` installs only the Python
-plugin and its textual fallback. Use the agent workflow when workspace cards,
-native guides, selection markers, or compact agent icons are required.
 
 ## Requirements and boundaries
 
-- Herdr **0.9.0+**, Python **3.11+**, macOS or Linux.
+**Python-only fallback (advanced).** An existing Herdr **0.9.0+** installation,
+Python **3.11+**, and macOS or Linux are enough for the textual plugin. This is
+not the default end goal when the native workspace cards are requested:
+`herdr plugin install` does not build or modify the GUI.
+
+**Complete experience.** The one-prompt workflow additionally needs a coding
+agent with local terminal access, network/Git access, and the official
+prerequisites for the latest compatible Herdr daemon and GPUI revision. The
+workflow discovers those requirements at execution time instead of pinning an
+old toolchain here.
+
 - Each represented agent must occupy a distinct Herdr pane. Agents nested
   inside one terminal are not visible through Herdr's pane API.
 - Links must stay within one workspace. Cycles are rejected, parent depth is
@@ -80,6 +98,10 @@ RTK is not installed.
 
 Herdr shows the package as **Agent Tree (cards require native client)** in its
 installation preview. The plugin ID remains `naeliofreires.agent-tree`.
+
+Use this section only for the Python-only fallback or when the complete
+one-prompt workflow is configuring the already-built native client. It does not
+replace the complete installation path above.
 
 Choose one installation path. A local checkout is recommended when you will
 author relationships; the GitHub-managed path is convenient for a fixed copy.
