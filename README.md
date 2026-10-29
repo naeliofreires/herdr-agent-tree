@@ -1,63 +1,92 @@
 # Herdr Agent Tree
 
-The optional [native GPUI companion](native/README.md) adds workspace cards with
-darker headers, continuous tree guides, compact agent icons, and accent selection.
+Herdr Agent Tree is an MIT-licensed plugin for Herdr 0.9.0+ that keeps
+explicitly linked parent and child agents adjacent in the sidebar. It runs on
+macOS and Linux with Python 3.11+ and has no Python runtime dependencies.
 
-A Herdr plugin that keeps parent agents and their children adjacent in the
-sidebar, with textual tree guides and an explicit relationship registry.
+The plugin does not infer relationships from titles, process names, or timing.
+Each link is authored explicitly and stored by stable terminal ID. The optional
+[native GPUI companion](native/README.md) adds native guides and hierarchy
+styling; the released client continues to work through the textual fallback.
 
 ```text
 workspace
-  ├─ codex       coordinator
-  │  ├─ claude   implementation
-  │  │  └─ codex tests
-  │  └─ codex    review
-  └─ opencode    independent task
+  ├─ coordinator
+  │  ├─ implementation
+  │  │  └─ tests
+  │  └─ review
+  └─ independent task
 ```
 
-This extends the existing sidebar through supported metadata tokens and
-`agent.view.set`. It does not patch Herdr or replace its status indicators.
-Names, terminal titles, agent lifecycle reports, and other plugins' metadata
-remain owned by their original sources.
+## Native companion at a glance
 
-## Requirements and limitations
+The optional companion is a source patch set for Herdr GPUI. It is not part of
+the plugin installer; the standard client remains useful through the textual
+prefix fallback.
 
-- Herdr **0.9.0+**, Python **3.11+**, macOS or Linux. No Python runtime packages.
-- Herdr GPUI must support custom sidebar tokens and have `[usage] inline = true`.
-- Each represented agent must occupy a distinct Herdr pane. Subagents running
-  inside one Codex/Claude terminal are not exposed by Herdr's pane API.
-- Parent links are explicit. Herdr does not provide parent-agent IDs, and this
-  plugin never guesses relationships from titles or process names.
-- Links must stay within one workspace. Cycles and excessive depth are refused.
-- Guides are text inside native rows. Continuous native connectors, separate
-  ancestor styling, and clickable branch expansion need changes to Herdr GPUI.
-- Each row also receives `naeliofreires_tree_path`, a compact `v1:` binary
-  branch path for an optional native GPUI companion. The released GPUI client
-  currently falls back to `naeliofreires_tree_prefix`. Native source patches are
-  included separately and are not installed automatically; the companion
-  renderer is still development work.
-- The plugin controls the session's one agent-view projection while enabled;
-  do not enable another agent-view plugin at the same time.
+| Feature | Standard GPUI | Patched GPUI |
+| --- | --- | --- |
+| Workspace presentation | Standard rows and spacing. | Cards with 10px side spacing and 12px card gaps. |
+| Workspace heading | Standard theme styling. | Darker background based on the sidebar color and bold workspace labels. |
+| Tree guides | Textual prefix token. | Continuous ancestor and elbow guides at 20px levels. |
+| Selection | Standard row selection. | Accent background and a left marker that keep tree guides aligned. |
+| Agent identity | Engine name remains in the row. | Tool icon and task/tab title, with lifecycle indicators and accessibility labels. |
 
-## Install
+The native treatment is scoped to nested Agent Tree rows with valid paths. It
+has no collapsible branch controls. See [native/README.md](native/README.md)
+for the pinned source patches and build steps.
 
-The examples use the optional `rtk proxy` command wrapper. Herdr and Python are
-the only runtime requirements; the plugin itself does not invoke RTK.
+## Requirements and boundaries
+
+- Herdr **0.9.0+**, Python **3.11+**, macOS or Linux.
+- Each represented agent must occupy a distinct Herdr pane. Agents nested
+  inside one terminal are not visible through Herdr's pane API.
+- Links must stay within one workspace. Cycles are rejected, parent depth is
+  bounded, and the maximum agent list is 2048.
+- A missing parent temporarily promotes its child to a root; the stored link is
+  retained so the hierarchy can recover when the parent returns.
+- The plugin owns one `agent.view` projection while enabled. Do not enable a
+  second plugin that controls the same projection.
+- The plugin never changes Herdr runtime preferences or other metadata sources.
+
+The examples use `rtk proxy`, an optional local command wrapper that reduces
+terminal output. RTK is not a plugin dependency; omit the `rtk proxy` prefix if
+RTK is not installed.
+
+## Install and configure
+
+Choose one installation path. A local checkout is recommended when you will
+author relationships; the GitHub-managed path is convenient for a fixed copy.
+
+**Local checkout, recommended for relationship authoring.** From any directory,
+replace `/path/to/herdr-agent-tree` with the absolute clone path you choose:
+
+```sh
+rtk proxy git clone https://github.com/naeliofreires/herdr-agent-tree.git /path/to/herdr-agent-tree
+rtk proxy herdr plugin link /path/to/herdr-agent-tree
+```
+
+**GitHub-managed alternative.** From any directory:
 
 ```sh
 rtk proxy herdr plugin install naeliofreires/herdr-agent-tree
 ```
 
-Add the tree token to `~/.config/herdr/config.toml`. If you already have custom
-rows, insert `$naeliofreires_tree_prefix` into those rows instead of replacing them.
+The managed installer accepts the standard `OWNER/REPO[/SUBDIR] [--ref REF]`
+form. Do not run both paths for the same plugin ID.
+
+Add the plugin's text fallback token to `~/.config/herdr/config.toml`. Keep
+`state_icon` first so the native lifecycle indicator remains visible:
 
 ```toml
 [ui.sidebar.agents]
 rows = [["state_icon", { token = "$naeliofreires_tree_prefix", dim = true }, "agent", "tab"]]
 ```
 
-For GPUI, keep agents under their workspaces and avoid repeating rounded frames
-at every level. These settings belong in `config-gpui.local.toml`:
+If you already have custom rows, add `$naeliofreires_tree_prefix` to the
+existing agent row instead of replacing that row.
+
+For the nested layout, edit `~/.config/herdr/config-gpui.local.toml`:
 
 ```toml
 agents_placement = "nested"
@@ -68,7 +97,7 @@ edge_rail = false
 inline = true
 ```
 
-Reload the daemon and GPUI configuration, then enable the plugin's tree view:
+Reload the daemon and the running client, then enable the view:
 
 ```sh
 rtk proxy herdr server reload-config
@@ -76,85 +105,121 @@ rtk proxy /Applications/Herdr.app/Contents/MacOS/Herdr config reload
 rtk proxy herdr plugin action invoke naeliofreires.agent-tree.enable
 ```
 
-The GUI command above is macOS-specific. On Linux, use the installed
-`herdr-gpui config reload` command. Keep `state_icon` first in the configured
-row so GPUI retains native lifecycle indicators.
+The macOS example uses the installed app. For the native companion, use the
+executable inside your [built bundle](native/README.md#reproduce-the-patched-client).
+On Linux, reload the running client with `herdr-gpui config reload`.
 
 ## Link agents
 
-For authoring and managing relationships, keep a local checkout:
+The following commands require the plugin checkout as their working directory.
+They accept pane IDs or stable terminal IDs; use `list` to discover both:
 
 ```sh
-rtk proxy git clone https://github.com/naeliofreires/herdr-agent-tree.git
 rtk proxy python3 -m agent_tree list
-rtk proxy python3 -m agent_tree link w1:p2 --parent w1:p1
-rtk proxy python3 -m agent_tree link w1:p3 --parent w1:p2
-rtk proxy python3 -m agent_tree unlink w1:p2
+rtk proxy python3 -m agent_tree link CHILD --parent PARENT
+rtk proxy python3 -m agent_tree unlink CHILD
 ```
 
-Run the Python commands from inside that checkout. Replace example pane IDs
-with IDs from `list`; stable terminal IDs are accepted as well. The commands
-inherit `HERDR_SOCKET_PATH` inside a Herdr pane. Outside Herdr they use the
-default local socket; set `HERDR_SOCKET_PATH` explicitly for a named session.
+For example:
 
-Relationships are saved using terminal IDs, not reusable pane labels. A new
-terminal in an old pane will not inherit that pane's previous parent. Missing
-parents temporarily promote their children to roots; existing links are retained
-so a returning parent can be restored. Agents in separate workspaces remain
-separate roots until you explicitly link agents within a workspace.
+```sh
+rtk proxy python3 -m agent_tree link w1:p2 --parent w1:p1
+rtk proxy python3 -m agent_tree link w1:p3 --parent w1:p2
+```
 
-## Lifecycle and removal
+Relationships are persisted by terminal ID, not reusable pane labels. The
+commands inherit `HERDR_SOCKET_PATH` from a Herdr pane. Outside Herdr, set it
+explicitly when targeting a named daemon session.
+
+## Lifecycle and cleanup
+
+When enabled, startup and these pane/workspace events refresh the tree:
+`pane.agent_detected`, `pane.closed`, `pane.moved`, `tab.moved`, and
+`workspace.reordered`. The plugin does not run a watcher and events do not
+enable a previously disabled tree.
+
+From any directory, use the fully qualified plugin action IDs:
 
 ```sh
 rtk proxy herdr plugin action invoke naeliofreires.agent-tree.sync
 rtk proxy herdr plugin action invoke naeliofreires.agent-tree.list
 rtk proxy herdr plugin action invoke naeliofreires.agent-tree.disable
+```
+
+Disable the plugin in each relevant daemon session before removing it. Disable
+clears all three plugin tokens from every pane it can enumerate in that session,
+clears the plugin's source-owned agent view, and leaves unrelated metadata and
+views intact. It does not remove stored links, runtime preferences, or native
+source patches/bundles. After removing the plugin, you can remove the optional
+prefix token from your sidebar configuration manually. Keep that token when
+using the plugin's textual fallback in an unpatched client.
+
+For a local checkout, unlink it from any directory:
+
+```sh
 rtk proxy herdr plugin unlink naeliofreires.agent-tree
 ```
 
-Use the **disable action before unlinking**. Disabling clears only this plugin's
-metadata tokens and its source-owned agent view. Unlinking alone does not invoke
-the cleanup action. The optional sidebar token is harmless when no value is
-reported; remove it from your rows if you stop using the plugin. GPUI layout
-settings are preferences and are not changed by the plugin runtime.
+For a GitHub-managed install, use the managed uninstall command instead:
 
-Startup and pane lifecycle hooks refresh an enabled tree. They do not enable a
-previously disabled tree, run a background watcher, or subscribe to their own
-metadata updates. State is isolated per daemon socket below
-`HERDR_PLUGIN_STATE_DIR`, or Herdr's standard user plugin-state directory when
-invoked directly. Link changes and synchronization share an exclusive file lock.
+```sh
+rtk proxy herdr plugin uninstall naeliofreires.agent-tree
+```
+
+Managed uninstall preserves Herdr configuration and state. Local unlink leaves
+the checkout and plugin-state files in place; cleanup of managed installed files
+may be deferred until any running plugin use finishes.
+
+State is isolated per daemon socket. The socket is resolved from
+`HERDR_SOCKET_PATH`, then `XDG_CONFIG_HOME` or `~/.config` plus
+`herdr/herdr.sock`. Plugin state is resolved from `HERDR_PLUGIN_STATE_DIR`,
+then `XDG_STATE_HOME` or `~/.local/state` plus
+`herdr/plugins/naeliofreires.agent-tree`.
 
 ## Architecture and verification
 
 ```text
-CLI / plugin hooks
+Herdr hooks / CLI
         |
         v
-session-scoped state + validated parent links
+socket-scoped state + validated terminal-ID links
         |
         v
-stable depth-first tree -> pane metadata -> agent.view.set
-        |                                    |
-        +--------- Herdr native sidebar -----+
+stable depth-first rows -> prefix/order/path -> agent.view.set
+                                      |             |
+                              released text     native GPUI companion
 ```
 
-Tests use named fakes and isolated temporary directories; they do not connect
-to your real daemon. From the repository root:
+From the plugin checkout, run the unit suite:
 
 ```sh
 rtk proxy python3 -m unittest discover -s tests
 ```
 
-To additionally test three levels and cleanup against a real daemon, explicitly
-select the binary. This starts a separate server with private HOME, state,
-configuration, and socket directories; it never attaches to your regular daemon.
+The opt-in live suite requires an explicit absolute Herdr binary and starts an
+isolated daemon with private HOME, state, configuration, and socket paths:
 
 ```sh
 rtk proxy env HERDR_TEST_BINARY=/absolute/path/to/herdr python3 -m unittest discover -s tests_live -v
 ```
 
-API references: [Herdr plugin contract](https://herdr.dev/docs/plugins/),
-[Herdr daemon source](https://github.com/herdrdev/herdr), and
-[Herdr GPUI sidebar token support](https://github.com/penso/herdr-gpui/blob/main/crates/herdr-gpui/README.md).
+## Metadata reference
 
-License: MIT.
+Every synchronized row reports all three tokens from source
+`plugin:naeliofreires.agent-tree` in one metadata update:
+
+| Token | Purpose |
+| --- | --- |
+| `naeliofreires_tree_prefix` | Zero-width-prefixed textual guides for the released client. |
+| `naeliofreires_tree_order` | Stable depth-first order used by the agent view. |
+| `naeliofreires_tree_path` | Bounded `v1:` path consumed by the optional native companion. |
+
+The path bit format and malformed-value fallback are documented in
+[native/README.md](native/README.md).
+
+See the [Herdr plugin contract](https://herdr.dev/docs/plugins/),
+[Herdr daemon source](https://github.com/herdrdev/herdr), and
+[Herdr GPUI source](https://github.com/penso/herdr-gpui) for upstream APIs.
+
+The plugin is [MIT licensed](LICENSE). Native patches retain upstream
+[Apache-2.0 licensing](native/LICENSE) and attribution ([native/NOTICE](native/NOTICE)).
